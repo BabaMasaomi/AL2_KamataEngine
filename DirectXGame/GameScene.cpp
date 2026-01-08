@@ -7,8 +7,9 @@ using namespace KamataEngine;
 /*-------------------- コンストラクタ&デストラクタ --------------------*/
 GameScene::GameScene() {}
 GameScene::~GameScene() {
-	delete player_;
-	delete modelBlocks_;
+	delete player_;       // プレイヤーの解放
+	delete modelSkydome_; // 天球の3Dモデルの解放
+	delete modelBlocks_;  // ブロックの3Dモデルの解放
 
 	// 複数ブロックの解放処理
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTrasformBlocks_) {
@@ -18,117 +19,25 @@ GameScene::~GameScene() {
 	}
 	worldTrasformBlocks_.clear();
 
-	delete debugCamera_;
+	delete debugCamera_; // デバッグカメラの解放
 }
 
-// 関数
-// 単位行列
-Matrix4x4 MakeIdentityMatrix() {
-	Matrix4x4 result{};
-
-	result.m[0][0] = 1.0f;
-	result.m[1][1] = 1.0f;
-	result.m[2][2] = 1.0f;
-	result.m[3][3] = 1.0f;
-
-	return result;
-}
-
-// 拡大縮小行列
-Matrix4x4 MakeScaleMatrix(const Vector3& scale) {
-	Matrix4x4 result{};
-
-	result.m[0][0] = scale.x;
-	result.m[1][1] = scale.y;
-	result.m[2][2] = scale.z;
-	result.m[3][3] = 1.0f;
-
-	return result;
-}
-
-// 平行移動行列
-Matrix4x4 MakeTranslateMatrix(const Vector3& translate) {
-	Matrix4x4 result = MakeIdentityMatrix();
-
-	result.m[3][0] = translate.x;
-	result.m[3][1] = translate.y;
-	result.m[3][2] = translate.z;
-
-	return result;
-}
-
-// Z回転行列
-Matrix4x4 MakeRotateZMatrix(float radian) {
-	Matrix4x4 result{};
-
-	// Z
-	result.m[0][0] = cosf(radian);
-	result.m[0][1] = sinf(radian);
-	result.m[1][0] = -sinf(radian);
-	result.m[1][1] = cosf(radian);
-	result.m[2][2] = 1.0f;
-	result.m[3][3] = 1.0f;
-
-	return result;
-}
-
-// X回転行列
-Matrix4x4 MakeRotateXMatrix(float radian) {
-	Matrix4x4 result{};
-
-	// X
-	result.m[0][0] = 1.0f;
-	result.m[1][1] = cosf(radian);
-	result.m[1][2] = sinf(radian);
-	result.m[2][1] = -sinf(radian);
-	result.m[2][2] = cosf(radian);
-	result.m[3][3] = 1.0f;
-
-	return result;
-}
-
-// Y回転行列
-Matrix4x4 MakeRotateYMatrix(float radian) {
-	Matrix4x4 result{};
-
-	// y
-	result.m[0][0] = cosf(radian);
-	result.m[0][2] = -sinf(radian);
-	result.m[1][1] = 1.0f;
-	result.m[2][0] = sinf(radian);
-	result.m[2][2] = cosf(radian);
-	result.m[3][3] = 1.0f;
-
-	return result;
-}
-
-// 4x4行列の掛け算
-Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2) {
-	Matrix4x4 result{};
-
-	for (int y = 0; y < 4; y++) {
-		for (int x = 0; x < 4; x++) {
-			result.m[y][x] = m1.m[y][0] * m2.m[0][x] + m1.m[y][1] * m2.m[1][x] + m1.m[y][2] * m2.m[2][x] + m1.m[y][3] * m2.m[3][x];
-		}
-	}
-	return result;
-}
-
-/*-------------------- メンバ関数 --------------------*/
-// 初期化
+/*==============================================================
+* メンバ関数
+==============================================================*/
+/*-------------------- 初期化 --------------------*/
 void GameScene::Initialize() {
 	// メンバ変数への代入処理
-
-
-	// ワールドトランスフォームの初期化
-	worldTrasform_.Initialize();
-
 	// カメラの初期化
+	camera_.farZ = 550.0f;
 	camera_.Initialize();
 
-	/*-------------------- プレイヤーの生成、初期化 --------------------*/
-	// 3Dモデルの生成
-	model_ = Model::Create();
+	// プレイヤーの生成、初期化
+	// プレイヤーの3Dモデルの生成
+	model_ = Model::CreateFromOBJ("player", true);
+
+	// プレイヤーのワールドトランスフォームの初期化
+	worldTrasform_.Initialize();
 
 	// プレイヤーの生成
 	player_ = new Player();
@@ -136,10 +45,22 @@ void GameScene::Initialize() {
 	// プレイヤーの初期化
 	player_->Intialize(model_, &camera_);
 
+	// 天球の生成、初期化
+	// 天球の3Dモデルの生成
+	modelSkydome_ = Model::CreateFromOBJ("skydome", true);
 
-	/*-------------------- ブロックの生成、初期化 --------------------*/
+	// 天球のワールドトランスフォームの初期化
+	worldTrasformSkydome_.Initialize();
+
+	// 天球の生成
+	skydome_ = new Skydome();
+
+	// 天球の初期化
+	skydome_->Intialize(modelSkydome_, &camera_);
+
+	// ブロックの生成、初期化
 	// ブロックの3Dモデルの生成
-	modelBlocks_ = Model::Create();
+	modelBlocks_ = Model::CreateFromOBJ("block", true);
 
 	// ブロックの初期化
 	// 要素数
@@ -179,12 +100,14 @@ void GameScene::Initialize() {
 	debugCamera_ = new DebugCamera(1280, 720);
 }
 
-// 更新
+/*-------------------- 更新 --------------------*/
 void GameScene::Update() {
 	// インゲームの更新処理
 	// プレイヤーの更新
-	player_->Update(); // playerに戻せ
+	player_->Update();
 
+	// 天球の更新
+	skydome_->Update();
 
 	// ブロックの更新
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTrasformBlocks_) {
@@ -193,17 +116,12 @@ void GameScene::Update() {
 				continue;
 
 			// アフィン変換行列の作成
-			worldTransformBlock->scale_ = { 1, 1, 1 };
-			worldTransformBlock->rotation_ = { 0, 0, 0 };
+			worldTransformBlock->scale_ = {2, 2, 2};
+			worldTransformBlock->rotation_ = {0, 0, 0};
+			// worldTransformBlock->translation_ = {0, 0, 0};	// Intializeで設定したので変更しない
 
-			Matrix4x4 rotateMatrix = Multiply(MakeRotateXMatrix(0.0f), Multiply(MakeRotateYMatrix(0.0f), MakeRotateZMatrix(0.0f)));
-
-			// ワールド行列を作成
-			worldTransformBlock->matWorld_ =
-				Multiply(Multiply(MakeScaleMatrix(worldTransformBlock->scale_), rotateMatrix), MakeTranslateMatrix(worldTransformBlock->translation_));
-
-			// 定数バッファに転送する
-			worldTransformBlock->TransferMatrix();
+			// 行列を定数バッファに転送
+			transform_.worldMatrixUpdate(*worldTransformBlock);
 		}
 	}
 
@@ -237,11 +155,14 @@ void GameScene::Update() {
 #endif // DEBUG
 }
 
-// 描画
+/*-------------------- 描画 --------------------*/
 void GameScene::Draw() {
 	// インゲームの描画処理
 	// 3Dモデルの描画
 	Model::PreDraw();
+
+	// 天球の描画
+	skydome_->Draw();
 
 	// ブロックの描画
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTrasformBlocks_) {

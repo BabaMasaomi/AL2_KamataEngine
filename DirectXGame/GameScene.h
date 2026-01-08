@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "KamataEngine.h"
 #include "Player.h"
+#include "Skydome.h"
+#include "Transform.h"
 #include <vector>
 
 class GameScene {
@@ -20,29 +22,41 @@ public:
 	void Draw();
 
 private:
-	/*-------------------- メンバ変数等 --------------------*/
 	// privateにしておく必要があるやつ
-	// テクスチャハンドル
-	uint32_t textureHandle_ = 0;
-
-	// 3Dモデル
-	KamataEngine::Model* model_ = nullptr;
-
-	// ワールドトランスフォーム
-	KamataEngine::WorldTransform worldTrasform_;
-
 	// カメラ
 	KamataEngine::Camera camera_;
+
+	// Translateクラス内の関数を使える様にする
+	Transform transform_;
+
+	/*-------------------- プレイヤー --------------------*/
+	// プレイヤーの3Dモデル
+	KamataEngine::Model* model_ = nullptr;
+
+	// プレイヤーのワールドトランスフォーム
+	KamataEngine::WorldTransform worldTrasform_;
 
 	// プレイヤー
 	Player* player_ = nullptr;
 
+	/*-------------------- 天球 --------------------*/
+	// 天球の3Dモデル
+	KamataEngine::Model* modelSkydome_ = nullptr;
+
+	// 天球のワールドトランスフォーム
+	KamataEngine::WorldTransform worldTrasformSkydome_;
+
+	// 天球
+	Skydome* skydome_ = nullptr;
+
+	/*-------------------- ブロック --------------------*/
 	// ブロックの3Dモデル
 	KamataEngine::Model* modelBlocks_ = nullptr;
 
 	// ブロック用可変個配列
 	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTrasformBlocks_;
 
+	/*-------------------- デバッグ --------------------*/
 	// デバッグカメラ有効
 	bool isDebugCameraActive_ = false;
 

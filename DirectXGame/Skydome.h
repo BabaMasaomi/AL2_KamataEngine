@@ -1,40 +1,36 @@
 ﻿#pragma once
 #include "KamataEngine.h"
-#include "Transform.h"
 
-class Player {
+class Skydome {
 public:
 	// コンストラクタ&デストラクタ
-	Player();
-	~Player();
+	Skydome();
+	~Skydome();
 
 	/// <summary>
-	/// 自機の初期化
+	/// 天球の初期化
 	/// </summary>
 	/// <param name="model">3Dモデル</param>
 	/// <param name="camera">カメラ</param>
 	void Intialize(KamataEngine::Model* model, KamataEngine::Camera* camera);
 
 	/// <summary>
-	/// 自機の更新
+	/// 天球の更新
 	/// </summary>
 	void Update();
 
 	/// <summary>
-	/// 自機の描画
+	/// 天球の描画
 	/// </summary>
 	void Draw();
 
 private:
 	// カメラ
-	KamataEngine::Camera* camera_ = nullptr;
+	KamataEngine::Camera* cameraSkydome_ = nullptr;
 
 	// ワールド変換データ
-	KamataEngine::WorldTransform worldTransform_;
-
-	// Translateクラス内の関数を使える様にする
-	Transform transform_;
+	KamataEngine::WorldTransform worldTransformSkydome_;
 
 	// モデル
-	KamataEngine::Model* model_ = nullptr;
+	KamataEngine::Model* modelSkydome_ = nullptr;
 };

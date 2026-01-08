@@ -13,22 +13,26 @@ using namespace KamataEngine;
 /// </summary>
 /// <param name="model">3Dモデル</param>
 /// <param name="camera">カメラ</param>
-void Player::Intialize(KamataEngine::Model* model, KamataEngine::Camera* camera) {
+void Player::Intialize(Model* model, Camera* camera) {
 	// ぬるぽチェック
 	assert(model);
-
-	// ワールドトランスフォームの初期化
-	worldTransform_.Initialize();
 
 	// 引き数の内容をメンバ変数に記録
 	camera_ = camera;
 
+	// ワールドトランスフォームの初期化
+	worldTransform_.Initialize();
+
 	// メンバ変数への代入処理
 	// ファイル名を指定してテクスチャを読み込む
-	textureHandle_ = TextureManager::Load("./Resources./uvChecker.png");
+
+	// プレイヤーの拡縮,回転,平行移動情報
+	worldTransform_.scale_ = {2, 2, 2};
+	worldTransform_.rotation_ = {0, 3, 0};
+	worldTransform_.translation_ = {0, 2, 0};
 
 	// 3Dモデルの生成
-	model_ = Model::Create();
+	model_ = model;
 }
 
 /// <summary>
@@ -36,16 +40,13 @@ void Player::Intialize(KamataEngine::Model* model, KamataEngine::Camera* camera)
 /// </summary>
 void Player::Update() {
 	// 行列を定数バッファに転送
-	worldTransform_.TransferMatrix();
+	transform_.worldMatrixUpdate(worldTransform_);
 }
 
 /// <summary>
 /// 自機の描画
 /// </summary>
 void Player::Draw() {
-
-	Model::PreDraw();
-	model_->Draw(worldTransform_, *camera_, textureHandle_);
-
-	Model::PostDraw();
+	// 自機を描画
+	model_->Draw(worldTransform_, *camera_);
 }
