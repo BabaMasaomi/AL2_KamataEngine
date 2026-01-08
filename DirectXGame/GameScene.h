@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "CameraController.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Player.h"
@@ -27,11 +28,11 @@ public:
 
 private:
 	// privateにしておく必要があるやつ
-	// カメラ
-	KamataEngine::Camera camera_;
+	//// カメラ
+	// KamataEngine::Camera camera_;
 
 	// マップチップフィールド
-	MapChipField* mapChipField_=nullptr;
+	MapChipField* mapChipField_ = nullptr;
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -62,6 +63,16 @@ private:
 
 	// ブロック用可変個配列
 	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
+
+	/*-------------------- 追従カメラ --------------------*/
+	// カメラ
+	KamataEngine::Camera camera_;
+
+	// カメラのワールドトランスフォーム
+	KamataEngine::WorldTransform worldTransformCamera_;
+
+	// カメラコントローラ
+	CameraController* camaraController_ = nullptr;
 
 	/*-------------------- デバッグ --------------------*/
 	// デバッグカメラ有効

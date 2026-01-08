@@ -31,6 +31,13 @@ public:
 	/// </summary>
 	void Draw();
 
+	// Gettterを用意する(追従カメラのために必要)
+	// 平行移動した位置
+	KamataEngine::WorldTransform& GetWorldTransform() { return worldTransform_; }
+
+	// 速度
+	const KamataEngine::Vector3& GetVeloctiy() const { return velocity_; }
+
 private:
 	// カメラ
 	KamataEngine::Camera* camera_ = nullptr;
@@ -48,13 +55,13 @@ private:
 	KamataEngine::Vector3 velocity_ = {};
 
 	// 左右移動の加速度
-	static inline const float kAcceleration = 0.05f;
+	static inline const float kAcceleration = 0.025f;
 
 	// 移動減衰の基本の値
 	static inline const float kAttenuation = 0.09f;
 
 	// 制限速度
-	static inline const float kLimitRunSpeed = 2.0f;
+	static inline const float kLimitRunSpeed = 1.5f;
 
 	// 左右の向き
 	LRDirection lrDirection_ = LRDirection::kRight;
@@ -75,8 +82,8 @@ private:
 	static inline const float kGravityAcceleration = 0.09f;
 
 	// 最大落下速度
-	static inline const float kLimitFallSpeed_ = 2.0f;
+	static inline const float kLimitFallSpeed_ = 1.0f;
 
 	// ジャンプ初速
-	static inline const float kJumpAcceleration_ = 2.0f;
+	static inline const float kJumpAcceleration_ = 1.0f;
 };

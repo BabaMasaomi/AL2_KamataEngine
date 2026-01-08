@@ -19,8 +19,9 @@ GameScene::~GameScene() {
 	}
 	worldTransformBlocks_.clear();
 
-	delete mapChipField_; // マップチップフィールドの解放
-	delete debugCamera_;  // デバッグカメラの解放
+	delete mapChipField_;     // マップチップフィールドの解放
+	delete camaraController_; // カメラコントローラの解放
+	delete debugCamera_;      // デバッグカメラの解放
 }
 
 /*==============================================================
@@ -75,6 +76,22 @@ void GameScene::Initialize() {
 	// ブロックの3Dモデルの生成
 	modelBlocks_ = Model::CreateFromOBJ("block", true);
 
+	// カメラコントローラの生成、初期化
+	// カメラコントローラの生成
+	camaraController_ = new CameraController();
+
+	// カメラコントローラの初期化
+	camaraController_->Intialize(&camera_);
+
+	// 追従対象をセット
+	camaraController_->SetTarget(player_);
+
+	// 移動範囲を指定
+	camaraController_->SetMovableArea(CameraController::Rect{20.0f, 180.0f, 10.0f, 200.0f});
+
+	// リセット(瞬間合わせ)
+	camaraController_->Reset();
+
 	// デバッグカメラの生成
 	debugCamera_ = new DebugCamera(1280, 720);
 }
@@ -95,14 +112,17 @@ void GameScene::Update() {
 				continue;
 
 			// アフィン変換行列の作成
-			worldTransformBlock->scale_ = {2, 2, 2};
-			worldTransformBlock->rotation_ = {0, 0, 0};
+			worldTransformBlock->scale_ = {2.0f, 2.0f, 2.0f};
+			worldTransformBlock->rotation_ = {0.0f, 0.0f, 0.0f};
 			// worldTransformBlock->translation_ = {0, 0, 0};	// Intializeで設定したので変更しない
 
 			// 行列を定数バッファに転送
 			transform_.worldMatrixUpdate(*worldTransformBlock);
 		}
 	}
+
+	// カメラコントローラの更新
+	camaraController_->Update();
 
 #ifdef _DEBUG
 	// デバッグ起動
