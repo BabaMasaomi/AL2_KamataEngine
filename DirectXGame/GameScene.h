@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "KamataEngine.h"
 #include "Player.h"
+#include <vector>
 
 class GameScene {
 public:
@@ -33,12 +34,18 @@ private:
 	// カメラ
 	KamataEngine::Camera camera_;
 
-	// サウンドデータハンドル
-	uint32_t soundDataHandle_ = 0;
-
-	// ImGuiで値を入力する変数
-	float inputFloat3[3] = {0, 0, 0};
-
-	// 自機
+	// プレイヤー
 	Player* player_ = nullptr;
+
+	// ブロックの3Dモデル
+	KamataEngine::Model* modelBlocks_ = nullptr;
+
+	// ブロック用可変個配列
+	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTrasformBlocks_;
+
+	// デバッグカメラ有効
+	bool isDebugCameraActive_ = false;
+
+	// デバッグカメラ
+	KamataEngine::DebugCamera* debugCamera_ = nullptr;
 };
