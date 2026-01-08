@@ -19,7 +19,7 @@ GameScene::~GameScene() {
 	}
 	worldTransformBlocks_.clear();
 
-	delete mapChipField_; //	マップチップフィールドの解放
+	delete mapChipField_; // マップチップフィールドの解放
 	delete debugCamera_;  // デバッグカメラの解放
 }
 
@@ -52,8 +52,11 @@ void GameScene::Initialize() {
 	// プレイヤーの生成
 	player_ = new Player();
 
+	// 座標をマップチップ番号で指定
+	Vector3 playerPos = mapChipField_->GetMapChipPositionByIndex(1, 18);
+
 	// プレイヤーの初期化
-	player_->Intialize(model_, &camera_);
+	player_->Intialize(model_, &camera_, playerPos);
 
 	// 天球の生成、初期化
 	// 天球の3Dモデルの生成

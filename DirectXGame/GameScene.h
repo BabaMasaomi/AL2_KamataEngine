@@ -31,7 +31,7 @@ private:
 	KamataEngine::Camera camera_;
 
 	// マップチップフィールド
-	MapChipField* mapChipField_;
+	MapChipField* mapChipField_=nullptr;
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
