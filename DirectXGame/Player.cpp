@@ -29,7 +29,7 @@ void Player::Intialize(Model* model, Camera* camera) {
 	// プレイヤーの拡縮,回転,平行移動情報
 	worldTransform_.scale_ = {2, 2, 2};
 	worldTransform_.rotation_ = {0, 3, 0};
-	worldTransform_.translation_ = {0, 2, 0};
+	worldTransform_.translation_ = {2, 2, 0};
 
 	// 3Dモデルの生成
 	model_ = model;

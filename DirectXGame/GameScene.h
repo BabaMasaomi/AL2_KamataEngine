@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "KamataEngine.h"
+#include "MapChipField.h"
 #include "Player.h"
 #include "Skydome.h"
 #include "Transform.h"
@@ -21,10 +22,16 @@ public:
 	// 描画
 	void Draw();
 
+	// 表示ブロックの生成
+	void GenerateBlocks();
+
 private:
 	// privateにしておく必要があるやつ
 	// カメラ
 	KamataEngine::Camera camera_;
+
+	// マップチップフィールド
+	MapChipField* mapChipField_;
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -54,7 +61,7 @@ private:
 	KamataEngine::Model* modelBlocks_ = nullptr;
 
 	// ブロック用可変個配列
-	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTrasformBlocks_;
+	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
 
 	/*-------------------- デバッグ --------------------*/
 	// デバッグカメラ有効
