@@ -39,7 +39,7 @@ private:
 	KamataEngine::Model* model_ = nullptr;
 
 	// プレイヤーのワールドトランスフォーム
-	KamataEngine::WorldTransform worldTrasform_;
+	KamataEngine::WorldTransform worldTransformPlayer_;
 
 	// プレイヤー
 	Player* player_ = nullptr;
@@ -49,7 +49,7 @@ private:
 	KamataEngine::Model* modelEnemy_ = nullptr;
 
 	// 敵のワールドトランスフォーム
-	KamataEngine::WorldTransform worldTrasformEnemy_;
+	KamataEngine::WorldTransform worldTransformEnemy_;
 
 	// 敵
 	std::list<Enemy*> enemies_ = {};
@@ -59,7 +59,7 @@ private:
 	KamataEngine::Model* modelSkydome_ = nullptr;
 
 	// 天球のワールドトランスフォーム
-	KamataEngine::WorldTransform worldTrasformSkydome_;
+	KamataEngine::WorldTransform worldTransformSkydome_;
 
 	// 天球
 	Skydome* skydome_ = nullptr;

@@ -1,5 +1,4 @@
 ﻿#include "GameScene.h"
-#include "KamataEngine.h"
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -10,11 +9,11 @@ GameScene::~GameScene() {
 	delete player_; // プレイヤーの解放
 
 	for (Enemy* enemy : enemies_) {
-		delete enemy; // 敵の解放(範囲for文を使う)
+		delete enemy;			// 敵の解放(範囲for文を使う)
 	}
 
-	delete modelSkydome_; // 天球の3Dモデルの解放
-	delete modelBlocks_;  // ブロックの3Dモデルの解放
+	delete modelSkydome_;		// 天球の3Dモデルの解放
+	delete modelBlocks_;		// ブロックの3Dモデルの解放
 
 	// 複数ブロックの解放処理
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
@@ -25,12 +24,12 @@ GameScene::~GameScene() {
 	worldTransformBlocks_.clear();
 
 	for (DeathParticles* deathParticles : {deathParticles_}) {
-		delete deathParticles; // パーティクルの解放
+		delete deathParticles;	// パーティクルの解放
 	}
 
-	delete mapChipField_;     // マップチップフィールドの解放
-	delete camaraController_; // カメラコントローラの解放
-	delete debugCamera_;      // デバッグカメラの解放
+	delete mapChipField_;		// マップチップフィールドの解放
+	delete camaraController_;	// カメラコントローラの解放
+	delete debugCamera_;		// デバッグカメラの解放
 }
 
 /*==============================================================
@@ -57,12 +56,11 @@ void GameScene::Initialize() {
 	GenerateBlocks();
 
 	/*--------------- プレイヤー ---------------*/
-	// プレイヤーの生成、初期化
 	// プレイヤーの3Dモデルの生成
 	model_ = Model::CreateFromOBJ("player", true);
 
 	// プレイヤーのワールドトランスフォームの初期化
-	worldTrasform_.Initialize();
+	worldTransformPlayer_.Initialize();
 
 	// プレイヤーの生成
 	player_ = new Player();
@@ -77,12 +75,11 @@ void GameScene::Initialize() {
 	player_->SetMapChipField(mapChipField_);
 
 	/*--------------- 敵 ---------------*/
-	// 敵の生成、初期化
 	// 敵の3Dモデルの生成
 	modelEnemy_ = Model::CreateFromOBJ("enemy", true);
 
 	// 敵のワールドトランスフォームの初期化
-	worldTrasformEnemy_.Initialize();
+	worldTransformEnemy_.Initialize();
 
 	for (int32_t i = 0; i < 3; i++) {
 		// 敵の生成
@@ -101,12 +98,11 @@ void GameScene::Initialize() {
 	// enemies_->SetMapChipField(mapChipField_);		// マップチップと当たり判定を取る時に必要
 
 	/*--------------- 天球 ---------------*/
-	// 天球の生成、初期化
 	// 天球の3Dモデルの生成
 	modelSkydome_ = Model::CreateFromOBJ("skydome", true);
 
 	// 天球のワールドトランスフォームの初期化
-	worldTrasformSkydome_.Initialize();
+	worldTransformSkydome_.Initialize();
 
 	// 天球の生成
 	skydome_ = new Skydome();
@@ -115,20 +111,17 @@ void GameScene::Initialize() {
 	skydome_->Initialize(modelSkydome_, &camera_);
 
 	/*--------------- ブロック ---------------*/
-	// ブロックの生成、初期化
 	// ブロックの3Dモデルの生成
 	modelBlocks_ = Model::CreateFromOBJ("block", true);
 
 	/*--------------- パーティクル ---------------*/
-	// パーティクルの生成、初期化
 	// パーティクルの3Dモデルの生成
 	modelParticles_ = Model::CreateFromOBJ("deathParticle", true);
 
 	// パーティクルのワールドトランスフォームの初期化
-	worldTrasform_.Initialize();
+	worldTransformPlayer_.Initialize();
 
 	/*--------------- カメラ ---------------*/
-	// カメラコントローラの生成、初期化
 	// カメラコントローラの生成
 	camaraController_ = new CameraController();
 
