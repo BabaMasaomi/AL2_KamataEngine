@@ -1,36 +1,62 @@
 ﻿#pragma once
+#include "CameraController.h"
 #include "KamataEngine.h"
 #include "Player.h"
-//#include "Transform.h"
+#include "Transform.h"
+#include <vector>
 
 class TitleScene {
 private:
 	// 終了フラグ
 	bool finished_ = false;
 
-	//// Translateクラス内の関数を使える様にする
-	//Transform transform_;
+	// Translateクラス内の関数を使える様にする
+	Transform transform_;
 
-	//// ワールド変換データ
-	//KamataEngine::WorldTransform worldTransform_;
+	/*-------------------- タイトルフォント --------------------*/
+	// タイトルフォントの3Dモデル
+	KamataEngine::Model* modelTitle_ = nullptr;
 
-	//// タイトルづくり用変数
-	//KamataEngine::Model* modelPlayer_ = nullptr;
+	// ワールド変換データ
+	KamataEngine::WorldTransform worldTransformTitle_;
+
+	/*-------------------- プレイヤー --------------------*/
+	// プレイヤーの3Dモデル
+	KamataEngine::Model* modelPlayer_ = nullptr;
+
+	// プレイヤーのワールドトランスフォーム
+	KamataEngine::WorldTransform worldTransformPlayer_;
+
+	// プレイヤー
+	Player* player_ = nullptr;
+
+	/*-------------------- カメラ --------------------*/
+	// カメラ
+	KamataEngine::Camera camera_;
+
+	// カメラのワールドトランスフォーム
+	KamataEngine::WorldTransform worldTransformCamera_;
+
+	/*-------------------- デバッグ --------------------*/
+	// デバッグカメラ有効
+	bool isDebugCameraActive_ = false;
+
+	// デバッグカメラ
+	KamataEngine::DebugCamera* debugCamera_ = nullptr;
 
 public:
-	/// <summary>
-	/// タイトルシーンの初期化
-	/// </summary>
+	/*-------------------- コンストラクタ&デストラクタ --------------------*/
+	TitleScene();
+	~TitleScene();
+
+	/*-------------------- メンバ関数 --------------------*/
+	// 初期化
 	void Initialize();
 
-	/// <summary>
-	/// タイトルシーンの更新
-	/// </summary>
+	// 更新
 	void Update();
 
-	/// <summary>
-	/// タイトルシーンの描画
-	/// </summary>
+	// 描画
 	void Draw();
 
 	/*-------------------- アクセッサ --------------------*/

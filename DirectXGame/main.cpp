@@ -90,7 +90,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	delete gameScene;
 
 	// nullputrの代入(解放処理とセットで)
-	//titleScene = nullptr;
+	// titleScene = nullptr;
 
 	// エンジンの終了
 	Finalize();
