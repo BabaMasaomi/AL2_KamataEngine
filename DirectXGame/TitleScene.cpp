@@ -7,8 +7,8 @@ using namespace KamataEngine;
 /*-------------------- コンストラクタ&デストラクタ --------------------*/
 TitleScene::TitleScene() {}
 TitleScene::~TitleScene() {
-	delete modelTitle_;	// タイトルフォントの3Dモデルの解放
-	delete modelPlayer_;	// プレイヤーの3Dモデルの解放
+	delete modelTitle_;  // タイトルフォントの3Dモデルの解放
+	delete modelPlayer_; // プレイヤーの3Dモデルの解放
 }
 
 /*-------------------- 初期化 --------------------*/
@@ -21,12 +21,13 @@ void TitleScene::Initialize() {
 	modelTitle_ = Model::CreateFromOBJ("titleFont", true);
 	worldTransformTitle_.Initialize();
 	worldTransformTitle_.translation_ = {0.0f, 5.0f, 0.0f};
+	worldTransformTitle_.scale_ = {2.0f, 2.0f, 2.0f};
 
 	// プレイヤーのモデル
 	modelPlayer_ = Model::CreateFromOBJ("player", true);
 	worldTransformPlayer_.Initialize();
-	worldTransformPlayer_.translation_ = {0.0f, -2.0f, 0.0f};
-	worldTransformPlayer_.scale_ = {2.0f, 2.0f, 2.0f};
+	worldTransformPlayer_.translation_ = {0.0f, -10.0f, 0.0f};
+	worldTransformPlayer_.scale_ = {5.0f, 5.0f, 5.0f};
 }
 
 /*-------------------- 更新 --------------------*/
