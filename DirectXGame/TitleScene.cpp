@@ -14,18 +14,19 @@ TitleScene::~TitleScene() {
 /*-------------------- 初期化 --------------------*/
 void TitleScene::Initialize() {
 
+	// カメラ初期化
 	camera_.farZ = 550.0f;
 	camera_.Initialize();
 
 	// タイトル用フォントのモデル
-	modelTitle_ = Model::CreateFromOBJ("titleFont", true);
-	worldTransformTitle_.Initialize();
+	modelTitle_ = Model::CreateFromOBJ("titleFont", true);	// タイトルフォントの3Dモデルを生成
+	worldTransformTitle_.Initialize();						// タイトルのワールドトランスフォームの初期化
 	worldTransformTitle_.translation_ = {0.0f, 5.0f, 0.0f};
 	worldTransformTitle_.scale_ = {2.0f, 2.0f, 2.0f};
 
 	// プレイヤーのモデル
-	modelPlayer_ = Model::CreateFromOBJ("player", true);
-	worldTransformPlayer_.Initialize();
+	modelPlayer_ = Model::CreateFromOBJ("player", true);		// プレイヤーの3Dモデルを生成
+	worldTransformPlayer_.Initialize();							// プレイヤーのワールドトランスフォームの初期化
 	worldTransformPlayer_.translation_ = {0.0f, -10.0f, 0.0f};
 	worldTransformPlayer_.scale_ = {5.0f, 5.0f, 5.0f};
 }
@@ -54,8 +55,8 @@ void TitleScene::Update() {
 void TitleScene::Draw() {
 	Model::PreDraw();
 
+	// モデルを描画
 	modelTitle_->Draw(worldTransformTitle_, camera_);
-
 	modelPlayer_->Draw(worldTransformPlayer_, camera_);
 
 	Model::PostDraw();
