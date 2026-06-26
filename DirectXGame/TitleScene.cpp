@@ -7,8 +7,9 @@ using namespace KamataEngine;
 /*-------------------- コンストラクタ&デストラクタ --------------------*/
 TitleScene::TitleScene() {}
 TitleScene::~TitleScene() {
-	delete modelTitle_;  // タイトルフォントの3Dモデルの解放
-	delete modelPlayer_; // プレイヤーの3Dモデルの解放
+	delete modelTitle_;		// タイトルフォントの3Dモデルの解放
+	delete modelPlayer_;	// プレイヤーの3Dモデルの解放
+	delete fade_;			// フェードの解放
 }
 
 /*-------------------- 初期化 --------------------*/
@@ -29,10 +30,16 @@ void TitleScene::Initialize() {
 	worldTransformPlayer_.Initialize();							// プレイヤーのワールドトランスフォームの初期化
 	worldTransformPlayer_.translation_ = {0.0f, -10.0f, 0.0f};
 	worldTransformPlayer_.scale_ = {5.0f, 5.0f, 5.0f};
+
+	// フェード用
+	fade_ = new Fade();
+	fade_->Initialize();
+	fade_->Start(Fade::Status::FadeIn, 1.0f);
 }
 
 /*-------------------- 更新 --------------------*/
 void TitleScene::Update() {
+	// シーン切り替え
 	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
 		finished_ = true;
 	}
@@ -49,6 +56,9 @@ void TitleScene::Update() {
 	transform_.worldMatrixUpdate(worldTransformTitle_);
 	transform_.worldMatrixUpdate(worldTransformPlayer_);
 	camera_.UpdateMatrix();
+
+	// フェードを更新
+	fade_->Update();
 }
 
 /*-------------------- 描画 --------------------*/
@@ -58,6 +68,9 @@ void TitleScene::Draw() {
 	// モデルを描画
 	modelTitle_->Draw(worldTransformTitle_, camera_);
 	modelPlayer_->Draw(worldTransformPlayer_, camera_);
+
+	// フェードを描画
+	fade_->Draw();
 
 	Model::PostDraw();
 }

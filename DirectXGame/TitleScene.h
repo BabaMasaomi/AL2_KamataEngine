@@ -2,16 +2,38 @@
 #include "CameraController.h"
 #include "KamataEngine.h"
 #include "Player.h"
+#include "Fade.h"
 #include "Transform.h"
 #include <vector>
 
 class TitleScene {
+public:
+	/*-------------------- コンストラクタ&デストラクタ --------------------*/
+	TitleScene();
+	~TitleScene();
+
+	/*-------------------- メンバ関数 --------------------*/
+	// 初期化
+	void Initialize();
+
+	// 更新
+	void Update();
+
+	// 描画
+	void Draw();
+
+	/*-------------------- アクセッサ --------------------*/
+	bool GetIsFinished() const { return finished_; }
+
 private:
 	// 終了フラグ
 	bool finished_ = false;
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
+
+	// フェード用
+	Fade* fade_ = nullptr;
 
 	/*-------------------- タイトルフォント --------------------*/
 	// タイトルフォントの3Dモデル
@@ -43,22 +65,4 @@ private:
 
 	// デバッグカメラ
 	KamataEngine::DebugCamera* debugCamera_ = nullptr;
-
-public:
-	/*-------------------- コンストラクタ&デストラクタ --------------------*/
-	TitleScene();
-	~TitleScene();
-
-	/*-------------------- メンバ関数 --------------------*/
-	// 初期化
-	void Initialize();
-
-	// 更新
-	void Update();
-
-	// 描画
-	void Draw();
-
-	/*-------------------- アクセッサ --------------------*/
-	bool GetIsFinished() const { return finished_; }
 };
