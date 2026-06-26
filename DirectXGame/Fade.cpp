@@ -54,6 +54,9 @@ void Fade::Update() {
 
 /*-------------------- 描画 --------------------*/
 void Fade::Draw() {
+	if (status_ == Status::None) {
+		return;
+	}
 	Sprite::PreDraw();
 	// スプライトを描画
 	sprite_->Draw();
@@ -66,4 +69,37 @@ void Fade::Start(Status status, float duration) {
 	status_ = status;
 	duration_ = duration;
 	counter_ = 0.0f;
+}
+
+/*-------------------- フェード停止 --------------------*/
+void Fade::Stop() { status_ = Status::None; }
+
+/*-------------------- フェードが終了したか判定を取る --------------------*/
+bool Fade::IsFinished() const {
+	switch (status_) {
+	case Fade::Status::None:
+		break;
+
+	case Fade::Status::FadeIn :
+		if (counter_ >= duration_) {
+			return true;
+		}
+		else {
+			return false;
+		}
+		break;
+
+	case Fade::Status::FadeOut:
+		if (counter_ >= duration_) {
+			return true;
+		} else {
+			return false;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	return true;
 }

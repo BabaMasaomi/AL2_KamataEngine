@@ -9,11 +9,11 @@ GameScene::~GameScene() {
 	delete player_; // プレイヤーの解放
 
 	for (Enemy* enemy : enemies_) {
-		delete enemy;			// 敵の解放(範囲for文を使う)
+		delete enemy; // 敵の解放(範囲for文を使う)
 	}
 
-	delete modelSkydome_;		// 天球の3Dモデルの解放
-	delete modelBlocks_;		// ブロックの3Dモデルの解放
+	delete modelSkydome_; // 天球の3Dモデルの解放
+	delete modelBlocks_;  // ブロックの3Dモデルの解放
 
 	// 複数ブロックの解放処理
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
@@ -24,12 +24,13 @@ GameScene::~GameScene() {
 	worldTransformBlocks_.clear();
 
 	for (DeathParticles* deathParticles : {deathParticles_}) {
-		delete deathParticles;	// パーティクルの解放
+		delete deathParticles; // パーティクルの解放
 	}
 
-	delete mapChipField_;		// マップチップフィールドの解放
-	delete camaraController_;	// カメラコントローラの解放
-	delete debugCamera_;		// デバッグカメラの解放
+	delete mapChipField_;     // マップチップフィールドの解放
+	delete camaraController_; // カメラコントローラの解放
+	delete debugCamera_;      // デバッグカメラの解放
+	delete fade_;             // フェードの解放
 }
 
 /*==============================================================
@@ -38,8 +39,8 @@ GameScene::~GameScene() {
 /*-------------------- 初期化 --------------------*/
 void GameScene::Initialize() {
 	// メンバ変数への代入処理
-	// フェーズをプレイから開始
-	phase_ = Phase::kPlay;
+	// フェーズをフェードインから開始
+	phase_ = Phase::kFadeIn;
 
 	// カメラの初期化
 	camera_.farZ = 550.0f;
@@ -139,6 +140,12 @@ void GameScene::Initialize() {
 
 	// デバッグカメラの生成
 	debugCamera_ = new DebugCamera(1280, 720);
+
+
+	/*--------------- フェード ---------------*/
+	fade_ = new Fade();
+	fade_->Initialize();
+	fade_->Start(Fade::Status::FadeIn, 1.0f);
 }
 
 /*-------------------- 更新 --------------------*/
@@ -148,6 +155,60 @@ void GameScene::Update() {
 
 	// フェーズごとの更新処理
 	switch (phase_) {
+	case ::GameScene::Phase::kFadeIn:
+		// 天球の更新
+		skydome_->Update();
+
+		// プレイヤーの更新
+		player_->Update();
+
+		// 敵の更新
+		for (Enemy* enemy : enemies_) {
+			enemy->Update();
+		}
+
+		// カメラコントローラの更新
+		camaraController_->Update();
+
+		// カメラの処理
+		if (isDebugCameraActive_) {
+			// デバッグカメラの更新
+			debugCamera_->Update();
+
+			// カメラ位置に行列を適用
+			camera_.matView = debugCamera_->GetCamera().matView;
+			camera_.matProjection = debugCamera_->GetCamera().matProjection;
+
+			// ビュープロジェクション行列の更新と転送
+			camera_.TransferMatrix();
+
+		} else {
+			// ビュープロジェクション行列の更新と転送
+			camera_.UpdateMatrix();
+		}
+
+		// ブロックの更新
+		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+				if (!worldTransformBlock) // 空白ならスキップ
+					continue;
+
+				// アフィン変換行列の作成
+				worldTransformBlock->scale_ = {2.0f, 2.0f, 2.0f};
+				worldTransformBlock->rotation_ = {0.0f, 0.0f, 0.0f};
+				// worldTransformBlock->translation_ = {0, 0, 0};	// Initializeで設定したので変更しない
+
+				// 行列を定数バッファに転送
+				transform_.worldMatrixUpdate(*worldTransformBlock);
+			}
+		}
+
+		// 総当たり当たり判定
+		CheckAllCollisions();
+
+		fade_->Update();
+		break;
+
 	case GameScene::Phase::kPlay:
 		// インゲームの更新処理
 		// 天球の更新
@@ -251,6 +312,10 @@ void GameScene::Update() {
 
 		break;
 
+	case ::GameScene::Phase::kFadeOut:
+		fade_->Update();
+		break;
+
 	default:
 		break;
 	}
@@ -299,6 +364,9 @@ void GameScene::Draw() {
 
 	// プレイヤーの描画
 	player_->Draw();
+
+	// フェードを更新
+	fade_->Draw();
 
 	Model::PostDraw();
 }
@@ -382,6 +450,12 @@ bool GameScene::CheckAABBCollision(const AABB& aabb1, const AABB& aabb2) {
 /*-------------------- フェーズの切り替え --------------------*/
 void GameScene::ChangePhase() {
 	switch (phase_) {
+	case GameScene::Phase::kFadeIn:
+		if (fade_->IsFinished()) {
+			phase_ = GameScene::Phase::kPlay;
+		}
+		break;
+
 	case GameScene::Phase::kPlay:
 		// ゲームプレイフェーズの処理
 		if (player_->GetIsDead()) {
@@ -405,10 +479,16 @@ void GameScene::ChangePhase() {
 	case GameScene::Phase::kDeath:
 		// デス演出フェーズの処理
 		if (deathParticles_ && deathParticles_->GetIsFinished()) {
+			phase_ = GameScene::Phase::kFadeOut;
+			fade_->Start(Fade::Status::FadeOut, 0.5f);
+		}
+
+		break;
+	case GameScene::Phase::kFadeOut:
+		if (fade_->IsFinished()) {
 			// 終了フラグを立てる
 			finished_ = true;
 		}
-
 		break;
 
 	default:

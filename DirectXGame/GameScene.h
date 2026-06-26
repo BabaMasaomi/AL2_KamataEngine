@@ -6,6 +6,7 @@
 #include "Enemy.h"
 #include "Skydome.h"
 #include "DeathParticles.h"
+#include "Fade.h"
 #include "Transform.h"
 #include "temporaryAABB.h"
 #include <vector>
@@ -18,8 +19,10 @@ private:
 
 	// ゲームのフェーズ(型)
 	enum class Phase {
-		kPlay,  // プレイ中
-		kDeath, // 死亡
+		kFadeIn,	// フェードイン
+		kPlay,		// プレイ中
+		kDeath,		// 死亡
+		kFadeOut,	// フェードアウト
 	};
 
 	// ゲームのフェーズ(変数)
@@ -92,8 +95,12 @@ private:
 	// デバッグカメラ有効
 	bool isDebugCameraActive_ = false;
 
+	/*-------------------- フェード用 --------------------*/
 	// デバッグカメラ
 	KamataEngine::DebugCamera* debugCamera_ = nullptr;
+
+	// フェード用
+	Fade* fade_ = nullptr;
 
 public:
 	/*-------------------- コンストラクタ&デストラクタ --------------------*/

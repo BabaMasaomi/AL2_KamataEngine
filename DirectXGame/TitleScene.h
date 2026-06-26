@@ -26,6 +26,16 @@ public:
 	bool GetIsFinished() const { return finished_; }
 
 private:
+	// シーンのフェーズ
+	enum class Phase {
+		kFadeIn,	// フェードイン
+		kMain,		// メイン部
+		kFadeOut,	// フェードアウト
+	};
+
+	// 現在のフェーズ
+	Phase phase_ = Phase::kFadeIn;
+
 	// 終了フラグ
 	bool finished_ = false;
 
