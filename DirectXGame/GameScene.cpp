@@ -59,6 +59,8 @@ void GameScene::Initialize() {
 	/*--------------- プレイヤー ---------------*/
 	// プレイヤーの3Dモデルの生成
 	model_ = Model::CreateFromOBJ("player", true);
+	// 攻撃エフェクトの3Dモデルの生成
+	modelAttack_ = Model::CreateFromOBJ("hit_effect", true);
 
 	// プレイヤーのワールドトランスフォームの初期化
 	worldTransformPlayer_.Initialize();
@@ -70,7 +72,7 @@ void GameScene::Initialize() {
 	Vector3 playerPos = mapChipField_->GetMapChipPositionByIndex(13, 17);
 
 	// プレイヤーの初期化
-	player_->Initialize(model_, &camera_, playerPos);
+	player_->Initialize(model_, modelAttack_, & camera_, playerPos);
 
 	// マップチップデータのセット
 	player_->SetMapChipField(mapChipField_);

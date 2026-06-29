@@ -17,7 +17,7 @@ using namespace KamataEngine;
 /// </summary>
 /// <param name="model">3Dモデル</param>
 /// <param name="camera">カメラ</param>
-void Player::Initialize(Model* model, Camera* camera, const Vector3 pos) {
+void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const Vector3 pos) {
 	// ぬるぽチェック
 	assert(model);
 
@@ -26,6 +26,7 @@ void Player::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 
 	// ワールドトランスフォームの初期化
 	worldTransform_.Initialize();
+	worldTransformAttack_.Initialize();
 
 	// メンバ変数への代入処理
 	// プレイヤーの拡縮,回転,平行移動情報
@@ -33,8 +34,11 @@ void Player::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 	worldTransform_.translation_ = pos;
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
 
+	worldTransformAttack_.scale_ = {2.0f, 2.0f, 2.0f};
+
 	// 3Dモデルの生成
 	model_ = model;
+	modelAttack_ = modelAttack;
 }
 
 /// <summary>
@@ -77,6 +81,13 @@ void Player::Update() {
 
 	default:
 		break;
+	}
+
+	// 攻撃エフェクトの位置更新
+	if (isAttackEffect_) {
+		worldTransformAttack_.translation_ = worldTransform_.translation_;
+		worldTransformAttack_.rotation_ = worldTransform_.rotation_;
+		transform_.worldMatrixUpdate(worldTransformAttack_);
 	}
 }
 
@@ -256,6 +267,7 @@ void Player::BehaviorAttackUpdate() {
 		if (chargeTimer_ >= kChargeTime_) {
 			attackPhase_ = AttackPhase::kDash;
 			chargeTimer_ = 0.0f;
+			isAttackEffect_ = true;
 		}
 		break;
 	}
@@ -313,6 +325,7 @@ void Player::BehaviorAttackUpdate() {
 		if (gapTimer_ >= kGapTime_) {
 			behaiviorRequest_ = Behavior::kRoot;
 			gapTimer_ = 0.0f;
+			isAttackEffect_ = false;
 		}
 		break;
 	}
@@ -331,6 +344,11 @@ void Player::BehaviorAttackUpdate() {
 void Player::Draw() {
 	// 自機を描画
 	model_->Draw(worldTransform_, *camera_);
+
+	// 攻撃エフェクトを描画
+	if (isAttackEffect_) {
+		modelAttack_->Draw(worldTransformAttack_, *camera_);
+	}
 }
 
 /// <summary>

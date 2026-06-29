@@ -40,6 +40,8 @@ private:
 	/*-------------------- プレイヤー --------------------*/
 	// プレイヤーの3Dモデル
 	KamataEngine::Model* model_ = nullptr;
+	// 攻撃エフェクトの3Dモデル
+	KamataEngine::Model* modelAttack_ = nullptr;
 
 	// プレイヤーのワールドトランスフォーム
 	KamataEngine::WorldTransform worldTransformPlayer_;

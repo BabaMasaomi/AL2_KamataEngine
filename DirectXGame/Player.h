@@ -42,7 +42,7 @@ enum class Behavior {
 // 攻撃フェーズ(型)
 enum class AttackPhase {
 	kCharge, // 溜め
-	kDash, // 攻撃
+	kDash,   // 攻撃
 	kGap,    // 後隙
 };
 
@@ -57,7 +57,7 @@ public:
 	/// </summary>
 	/// <param name="model">3Dモデル</param>
 	/// <param name="camera">カメラ</param>
-	void Initialize(KamataEngine::Model* model, KamataEngine::Camera* camera, const KamataEngine::Vector3 pos);
+	void Initialize(KamataEngine::Model* model, KamataEngine::Model* modelAttack, KamataEngine::Camera* camera, const KamataEngine::Vector3 pos);
 
 	/// <summary>
 	/// 自機の更新
@@ -246,6 +246,13 @@ private:
 
 	// 現在の攻撃フェーズ
 	AttackPhase attackPhase_ = AttackPhase::kCharge;
+
+	// 攻撃エフェクトモデル
+	KamataEngine::Model* modelAttack_ = nullptr;
+	// エフェクト用ワールドトランスフォーム
+	KamataEngine::WorldTransform worldTransformAttack_;
+	// エフェクト表示フラグ
+	bool isAttackEffect_ = false;
 
 	/*--------------- ビヘイビア管理用 ---------------*/
 	// 振る舞い
