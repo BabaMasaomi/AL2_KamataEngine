@@ -41,6 +41,17 @@ void Player::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 /// 自機の更新
 /// </summary>
 void Player::Update() {
+	// 通常行動更新
+	/*BehaviorRootUpdate();*/	// デバッグの為無効化
+
+	// 攻撃行動更新
+	BehaviorAttackUpdate();
+}
+
+/// <summary>
+/// 通常行動更新
+/// </summary>
+void Player::BehaviorRootUpdate() {
 	/*========== ①移動入力 ==========*/
 	// 接地している時
 	if (onGround_) {
@@ -160,6 +171,60 @@ void Player::Update() {
 		// 旋回タイマーを使って角度を線形補間する
 		worldTransform_.rotation_.y = turnFirstRotationY_ + (destinationRotationY - turnFirstRotationY_) * easeT;
 	}
+
+	/*========== ⑧行列計算 ==========*/
+	// 行列を定数バッファに転送
+	transform_.worldMatrixUpdate(worldTransform_);
+}
+
+/// <summary>
+/// 攻撃行動更新
+/// </summary>
+void Player::BehaviorAttackUpdate() {
+	// 移動判定
+	if (!isDash_) {
+
+		isDash_ = true;
+		dashTimer_ = 0.0f;
+		dashStartX_ = worldTransform_.translation_.x;
+	}
+
+	// 突進時間を計測
+	dashTimer_ += 1.0f / 60.0f;
+
+	// 移動
+	if (lrDirection_ == LRDirection::kRight) {
+		velocity_.x = kDashSpeed;
+	} else {
+		velocity_.x = -kDashSpeed;
+	}
+
+	// 終了判定
+	if (dashTimer_ >= kDashTime) {
+		velocity_.x = 0.0f;
+		isDash_ = false;
+	}
+
+	/*========== ②移動量を加味して衝突判定する ==========*/
+	// 衝突情報を初期化
+	CollisionMapInfo collisionMapInfo;
+	// 移動量に速度の値をコピー
+	collisionMapInfo.MovementAmount = velocity_;
+
+	// マップ衝突チェック
+	MapCollisionCheck(collisionMapInfo);
+
+	/*========== ③判定結果を反映して移動 ==========*/
+	MoveReflectingResult(collisionMapInfo);
+
+	/*========== ④天井に接触している時の処理 ==========*/
+	ContactWithCeiling(collisionMapInfo);
+
+	/*========== ⑤壁に接触している時の処理 ==========*/
+	ContactWithWall(collisionMapInfo);
+
+	/*========== ⑥接地状態の切り替え ==========*/
+	SwitchGroundingState(collisionMapInfo);
 
 	/*========== ⑧行列計算 ==========*/
 	// 行列を定数バッファに転送

@@ -14,93 +14,25 @@ enum class LRDirection {
 	kLeft,
 };
 
-class Player {
-private:
-	// Translateクラス内の関数を使える様にする
-	Transform transform_;
-
-	// マップチップによるフィールド
-	MapChipField* mapChipField_ = nullptr;
-
-	// カメラ
-	KamataEngine::Camera* camera_ = nullptr;
-
-	// ワールド変換データ
-	KamataEngine::WorldTransform worldTransform_;
-
-	// モデル
-	KamataEngine::Model* model_ = nullptr;
-
-	// 以下、移動などに使う変数をまとめる
-	KamataEngine::Vector3 velocity_ = {};
-
-	// 左右移動の加速度
-	static inline const float kAcceleration = 0.025f;
-
-	// 移動減衰の基本の値
-	static inline const float kAttenuation = 0.1f;
-
-	// 着地時の減衰の基本の値
-	static inline const float kAttenuationLanding = 0.1f;
-
-	// 制限速度
-	static inline const float kLimitRunSpeed = 0.75f;
-
-	// 左右の向き
-	LRDirection lrDirection_ = LRDirection::kRight;
-
-	// 接地フラグ
-	bool onGround_ = true;
-
-	// 重力加速度
-	static inline const float kGravityAcceleration = 0.09f;
-
-	// 最大落下速度
-	static inline const float kLimitFallSpeed_ = 0.75f;
-
-	// ジャンプ初速
-	static inline const float kJumpAcceleration_ = 1.0f;
-
-	// 壁にぶつかった時の減速率
-	static inline const float kAttenuationWall = 0.75f;
-
-	// 死亡フラグ
-	bool isDead_ = false;
-
-	// キャラクターの当たり判定サイズ
-	static inline const float kWidth = 1.6f;
-	static inline const float kHeight = 1.6f;
-
-	// マップとの当たり判定情報
-	struct CollisionMapInfo {
-		bool isCeilingCollide = false;             // 天井衝突フラグ
-		bool isLanding = false;                    // 着地フラグ
-		bool isWallCollide = false;                // 壁衝突フラグ
-		KamataEngine::Vector3 MovementAmount = {}; // 移動量
-	};
+// マップとの当たり判定情報
+struct CollisionMapInfo {
+	bool isCeilingCollide = false;             // 天井衝突フラグ
+	bool isLanding = false;                    // 着地フラグ
+	bool isWallCollide = false;                // 壁衝突フラグ
+	KamataEngine::Vector3 MovementAmount = {}; // 移動量
+};
 
 	// 角
-	enum Corner {
-		kRightBottom, // 右下
-		kLeftBottom,  // 左下
-		kRightTop,    // 右上
-		kLeftTop,     // 左上
+enum Corner {
+	kRightBottom, // 右下
+	kLeftBottom,  // 左下
+	kRightTop,    // 右上
+	kLeftTop,     // 左上
 
-		kNumCorner // 要素数
-	};
+	kNumCorner // 要素数
+};
 
-	// ブロックとの間にとる余白
-	static inline const float kMargin = 0.05f;
-
-	// 旋回開始の角度
-	float turnFirstRotationY_ = 0.0f;
-
-	// 旋回タイマー
-	float turnTimer_ = 0.0f;
-
-	// 旋回時間(秒)
-	static inline const float kTimeTurn = 0.3f;
-
+class Player {
 public:
 	// コンストラクタ&デストラクタ
 	Player();
@@ -117,6 +49,10 @@ public:
 	/// 自機の更新
 	/// </summary>
 	void Update();
+	
+	// ルートビヘイビア用更新
+	void BehaviorRootUpdate();		// 通常行動更新
+	void BehaviorAttackUpdate();	// 攻撃行動更新
 
 	/// <summary>
 	/// 自機の描画
@@ -201,4 +137,86 @@ public:
 
 	// マップチップ情報
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
+
+	private:
+	// Translateクラス内の関数を使える様にする
+	Transform transform_;
+
+	// マップチップによるフィールド
+	MapChipField* mapChipField_ = nullptr;
+
+	// カメラ
+	KamataEngine::Camera* camera_ = nullptr;
+
+	// ワールド変換データ
+	KamataEngine::WorldTransform worldTransform_;
+
+	// モデル
+	KamataEngine::Model* model_ = nullptr;
+
+	// 以下、移動などに使う変数をまとめる
+	KamataEngine::Vector3 velocity_ = {};
+
+	// 左右移動の加速度
+	static inline const float kAcceleration = 0.025f;
+
+	// 移動減衰の基本の値
+	static inline const float kAttenuation = 0.1f;
+
+	// 着地時の減衰の基本の値
+	static inline const float kAttenuationLanding = 0.1f;
+
+	// 制限速度
+	static inline const float kLimitRunSpeed = 0.75f;
+
+	// 左右の向き
+	LRDirection lrDirection_ = LRDirection::kRight;
+
+	// 接地フラグ
+	bool onGround_ = true;
+
+	// 重力加速度
+	static inline const float kGravityAcceleration = 0.09f;
+
+	// 最大落下速度
+	static inline const float kLimitFallSpeed_ = 0.75f;
+
+	// ジャンプ初速
+	static inline const float kJumpAcceleration_ = 1.0f;
+
+	// 壁にぶつかった時の減速率
+	static inline const float kAttenuationWall = 0.75f;
+
+	// 死亡フラグ
+	bool isDead_ = false;
+
+	// キャラクターの当たり判定サイズ
+	static inline const float kWidth = 1.6f;
+	static inline const float kHeight = 1.6f;
+
+	// ブロックとの間にとる余白
+	static inline const float kMargin = 0.05f;
+
+	// 旋回開始の角度
+	float turnFirstRotationY_ = 0.0f;
+
+	// 旋回タイマー
+	float turnTimer_ = 0.0f;
+
+	// 旋回時間(秒)
+	static inline const float kTimeTurn = 0.3f;
+
+	/*--------------- 攻撃行動用 ---------------*/
+	// 突進してるか
+	bool isDash_ = false;
+
+	// 突進開始位置
+	float dashStartX_ = 0.0f;
+
+	// 突進速度
+	const float kDashSpeed = 1.2f;
+
+	// 突進時間管理
+	float dashTimer_;
+	const float kDashTime = 0.1f;
 };
