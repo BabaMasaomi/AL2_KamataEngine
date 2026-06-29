@@ -159,7 +159,7 @@ void GameScene::Update() {
 		// 天球の更新
 		skydome_->Update();
 
-		// プレイヤーの更新
+		// フェード処理処理宙にプレイヤーを正しい位置に描画させる
 		player_->Update();
 
 		// 敵の更新

@@ -34,3 +34,10 @@ public:
 	// Vector3を行列で変換する関数(位置ベクトル用)
 	KamataEngine::Vector3 TransformNormal(const KamataEngine::Vector3& normal, const KamataEngine::Matrix4x4& matWorld);
 };
+
+// イージング関数
+float EaseIn(float start, float end, float t);
+
+float EaseOut(float start, float end, float t);
+
+float EaseInOut(float start, float end, float t);

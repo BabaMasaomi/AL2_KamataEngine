@@ -1,4 +1,5 @@
 ﻿#include "Transform.h"
+#include <algorithm>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -142,4 +143,22 @@ Vector3 Transform::TransformNormal(const Vector3& normal, const Matrix4x4& matWo
 	}
 
 	return result;
+}
+
+// イージング関数
+float EaseIn(float start, float end, float t) {
+	t = std::clamp(t, 0.0f, 1.0f);
+	return start + (end - start) * t * t;
+}
+
+float EaseOut(float start, float end, float t) {
+	t = std::clamp(t, 0.0f, 1.0f);
+	float ease = 1.0f - (1.0f - t) * (1.0f - t);
+	return start + (end - start) * ease;
+}
+
+float EaseInOut(float start, float end, float t) {
+	t = std::clamp(t, 0.0f, 1.0f);
+	float ease = t * t * (3.0f - 2.0f * t);
+	return start + (end - start) * ease;
 }

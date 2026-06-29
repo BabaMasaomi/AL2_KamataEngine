@@ -41,17 +41,65 @@ void Player::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 /// 自機の更新
 /// </summary>
 void Player::Update() {
-	// 通常行動更新
-	/*BehaviorRootUpdate();*/	// デバッグの為無効化
+	// 振る舞いを変更する
+	if (behaiviorRequest_ != Behavior::kUnKnown) {
+		behaivior_ = behaiviorRequest_;
+		// 各振る舞いごとの初期化を実行
+		switch (behaivior_) {
+		case Behavior::kRoot:
+			// 通常行動初期化
+			BehaviorRootInitialize();
+			break;
 
-	// 攻撃行動更新
-	BehaviorAttackUpdate();
+		case Behavior::kAttack:
+			// 攻撃行動初期化
+			BehaviorAttackInitialize();
+			break;
+
+		default:
+			break;
+		}
+		// 振る舞いリクエストをリセット
+		behaiviorRequest_ = Behavior::kUnKnown;
+	}
+
+	// Behaiviorの実行
+	switch (behaivior_) {
+	case Behavior::kRoot:
+		// 通常行動更新
+		BehaviorRootUpdate();
+		break;
+
+	case Behavior::kAttack:
+		// 攻撃行動更新
+		BehaviorAttackUpdate();
+		break;
+
+	default:
+		break;
+	}
+}
+
+// 通常行動初期化
+void Player::BehaviorRootInitialize() {
+	// 速度を初期化
+	velocity_.x = 0.0f;
+	velocity_.y = 0.0f;
+	// 回転角を初期化
+	turnTimer_ = 0.0f;
+	turnFirstRotationY_ = worldTransform_.rotation_.y;
 }
 
 /// <summary>
 /// 通常行動更新
 /// </summary>
 void Player::BehaviorRootUpdate() {
+	// 攻撃キーを押したら
+	if (Input::GetInstance()->PushKey(DIK_Z)) {
+		// 攻撃ビヘイビアをリクエスト
+		behaiviorRequest_ = Behavior::kAttack;
+	}
+
 	/*========== ①移動入力 ==========*/
 	// 接地している時
 	if (onGround_) {
@@ -161,8 +209,8 @@ void Player::BehaviorRootUpdate() {
 
 		// 左右の自キャラ角度テーブル
 		float destinationRotationYTable[] = {
-		    worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f,
-		    worldTransform_.rotation_.y = std::numbers::pi_v<float> * 3.0f / 2.0f,
+		    std::numbers::pi_v<float> / 2.0f,
+		    std::numbers::pi_v<float> * 3.0f / 2.0f,
 		};
 
 		// 状態に応じた角度を取得する
@@ -177,56 +225,102 @@ void Player::BehaviorRootUpdate() {
 	transform_.worldMatrixUpdate(worldTransform_);
 }
 
+// 攻撃行動初期化
+void Player::BehaviorAttackInitialize() {
+	dashTimer_ = 0.0f;
+	dashStartX_ = worldTransform_.translation_.x;
+	attackPhase_ = AttackPhase::kCharge;
+
+	// 現在の向きを記録
+	turnFirstRotationY_ = worldTransform_.rotation_.y;
+}
+
 /// <summary>
 /// 攻撃行動更新
 /// </summary>
 void Player::BehaviorAttackUpdate() {
-	// 移動判定
-	if (!isDash_) {
 
-		isDash_ = true;
-		dashTimer_ = 0.0f;
-		dashStartX_ = worldTransform_.translation_.x;
+	switch (attackPhase_) {
+	case AttackPhase::kCharge: {
+		chargeTimer_ += 1.0f / 60.0f;
+
+		float t = std::clamp(chargeTimer_ / kChargeTime_, 0.0f, 1.0f);
+
+		// 回転を補間
+		float destinationRotationY = (lrDirection_ == LRDirection::kRight) ? std::numbers::pi_v<float> / 2.0f : std::numbers::pi_v<float> * 3.0f / 2.0f;
+		worldTransform_.rotation_.y = EaseInOut(turnFirstRotationY_, destinationRotationY, t);
+		// Scaleを変更
+		worldTransform_.scale_.z = EaseOut(2.0f, 0.6f, t);
+		worldTransform_.scale_.y = EaseOut(2.0f, 3.2f, t);
+		// 突進動作へ移行
+		if (chargeTimer_ >= kChargeTime_) {
+			attackPhase_ = AttackPhase::kDash;
+			chargeTimer_ = 0.0f;
+		}
+		break;
 	}
 
-	// 突進時間を計測
-	dashTimer_ += 1.0f / 60.0f;
+	case AttackPhase::kDash: {
+		// 突進時間を計測
+		dashTimer_ += 1.0f / 60.0f;
 
-	// 移動
-	if (lrDirection_ == LRDirection::kRight) {
-		velocity_.x = kDashSpeed;
-	} else {
-		velocity_.x = -kDashSpeed;
+		// 移動
+		velocity_.x = lrDirection_ == LRDirection::kRight ? kDashSpeed : -kDashSpeed;
+
+		float t = std::clamp(dashTimer_ / kDashTime_, 0.0f, 1.0f);
+
+		worldTransform_.scale_.z = EaseOut(0.6f, 2.6f, t);
+		worldTransform_.scale_.y = EaseIn(3.2f, 1.4f, t);
+		// 後隙へ移行
+		if (dashTimer_ >= kDashTime_) {
+			velocity_.x = 0.0f;
+			attackPhase_ = AttackPhase::kGap;
+			dashTimer_ = 0.0f;
+		}
+
+		/*========== ②移動量を加味して衝突判定する ==========*/
+		// 衝突情報を初期化
+		CollisionMapInfo collisionMapInfo;
+		// 移動量に速度の値をコピー
+		collisionMapInfo.MovementAmount = velocity_;
+
+		// マップ衝突チェック
+		MapCollisionCheck(collisionMapInfo);
+
+		/*========== ③判定結果を反映して移動 ==========*/
+		MoveReflectingResult(collisionMapInfo);
+
+		/*========== ④天井に接触している時の処理 ==========*/
+		ContactWithCeiling(collisionMapInfo);
+
+		/*========== ⑤壁に接触している時の処理 ==========*/
+		ContactWithWall(collisionMapInfo);
+
+		/*========== ⑥接地状態の切り替え ==========*/
+		SwitchGroundingState(collisionMapInfo);
+
+		break;
 	}
 
-	// 終了判定
-	if (dashTimer_ >= kDashTime) {
-		velocity_.x = 0.0f;
-		isDash_ = false;
+	case AttackPhase::kGap: {
+		gapTimer_ += 1.0f / 60.0f;
+
+		float t = std::clamp(gapTimer_ / kGapTime_, 0.0f, 1.0f);
+
+		worldTransform_.scale_.z = EaseOut(2.6f, 2.0f, t);
+		worldTransform_.scale_.y = EaseOut(1.4f, 2.0f, t);
+		// 突進動作を終了
+		if (gapTimer_ >= kGapTime_) {
+			behaiviorRequest_ = Behavior::kRoot;
+			gapTimer_ = 0.0f;
+		}
+		break;
 	}
 
-	/*========== ②移動量を加味して衝突判定する ==========*/
-	// 衝突情報を初期化
-	CollisionMapInfo collisionMapInfo;
-	// 移動量に速度の値をコピー
-	collisionMapInfo.MovementAmount = velocity_;
+	default:
+		break;
+	}
 
-	// マップ衝突チェック
-	MapCollisionCheck(collisionMapInfo);
-
-	/*========== ③判定結果を反映して移動 ==========*/
-	MoveReflectingResult(collisionMapInfo);
-
-	/*========== ④天井に接触している時の処理 ==========*/
-	ContactWithCeiling(collisionMapInfo);
-
-	/*========== ⑤壁に接触している時の処理 ==========*/
-	ContactWithWall(collisionMapInfo);
-
-	/*========== ⑥接地状態の切り替え ==========*/
-	SwitchGroundingState(collisionMapInfo);
-
-	/*========== ⑧行列計算 ==========*/
 	// 行列を定数バッファに転送
 	transform_.worldMatrixUpdate(worldTransform_);
 }

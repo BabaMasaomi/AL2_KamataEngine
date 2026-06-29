@@ -22,7 +22,7 @@ struct CollisionMapInfo {
 	KamataEngine::Vector3 MovementAmount = {}; // 移動量
 };
 
-	// 角
+// 角
 enum Corner {
 	kRightBottom, // 右下
 	kLeftBottom,  // 左下
@@ -30,6 +30,20 @@ enum Corner {
 	kLeftTop,     // 左上
 
 	kNumCorner // 要素数
+};
+
+// 振る舞い
+enum class Behavior {
+	kRoot,    // 通常状態
+	kAttack,  // 攻撃中
+	kUnKnown, // 変更リクエスト無し
+};
+
+// 攻撃フェーズ(型)
+enum class AttackPhase {
+	kCharge, // 溜め
+	kDash, // 攻撃
+	kGap,    // 後隙
 };
 
 class Player {
@@ -49,10 +63,15 @@ public:
 	/// 自機の更新
 	/// </summary>
 	void Update();
-	
+
 	// ルートビヘイビア用更新
-	void BehaviorRootUpdate();		// 通常行動更新
-	void BehaviorAttackUpdate();	// 攻撃行動更新
+	void BehaviorRootUpdate();   // 通常行動更新
+	void BehaviorAttackUpdate(); // 攻撃行動更新
+
+	// 通常行動初期化
+	void BehaviorRootInitialize();
+	// 攻撃行動初期化
+	void BehaviorAttackInitialize();
 
 	/// <summary>
 	/// 自機の描画
@@ -138,7 +157,7 @@ public:
 	// マップチップ情報
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 
-	private:
+private:
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
 
@@ -207,16 +226,31 @@ public:
 	static inline const float kTimeTurn = 0.3f;
 
 	/*--------------- 攻撃行動用 ---------------*/
-	// 突進してるか
-	bool isDash_ = false;
-
 	// 突進開始位置
 	float dashStartX_ = 0.0f;
 
 	// 突進速度
 	const float kDashSpeed = 1.2f;
 
+	// 溜め時間管理
+	float chargeTimer_;
+	const float kChargeTime_ = 0.1f;
+
 	// 突進時間管理
 	float dashTimer_;
-	const float kDashTime = 0.1f;
+	const float kDashTime_ = 0.2f;
+
+	// 後隙時間管理
+	float gapTimer_;
+	const float kGapTime_ = 0.1f;
+
+	// 現在の攻撃フェーズ
+	AttackPhase attackPhase_ = AttackPhase::kCharge;
+
+	/*--------------- ビヘイビア管理用 ---------------*/
+	// 振る舞い
+	Behavior behaivior_ = Behavior::kRoot;
+
+	// 振る舞いのリクエスト
+	Behavior behaiviorRequest_ = Behavior::kUnKnown;
 };
