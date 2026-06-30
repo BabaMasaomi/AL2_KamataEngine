@@ -14,6 +14,12 @@ public:
 		float top = 1.0f;
 	};
 
+	// カメラのモード
+	enum class Mode {
+		kFollow,		// プレイヤー追従
+		kForcedScroll,	// 強制スクロール
+	};
+
 	/// <summary>
 	/// カメラの初期化
 	/// </summary>
@@ -23,6 +29,9 @@ public:
 	/// カメラの更新
 	/// </summary>
 	void Update();
+
+	void UpdateFollow();
+	void UpdateForcedScroll();
 
 	/// <summary>
 	/// 最初のピッタリ補正のためのリセット
@@ -60,4 +69,9 @@ private:
 
 	// 追従対象の各方向へのカメラ移動範囲(-left,+right,-bottom,+topの順)
 	static inline const Rect cameraMovementMargin = {-100.0f, 100.0f, -100.0f, 100.0f};
+
+	/*--------------- モード管理 ---------------*/
+	Mode mode_ = Mode::kFollow;
+
+	float forceScrollSpeed_ = 0.08f;
 };

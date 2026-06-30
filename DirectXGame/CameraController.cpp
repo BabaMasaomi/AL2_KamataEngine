@@ -17,6 +17,29 @@ void CameraController::Update() {
 		return;
 	}
 
+	switch (mode_) {
+
+	case Mode::kFollow:
+		UpdateFollow();
+		break;
+
+	case Mode::kForcedScroll:
+		UpdateForcedScroll();
+		break;
+	}
+
+	// 移動範囲制限
+	camera_->translation_.x = std::max(camera_->translation_.x, movableArea_.left);
+	camera_->translation_.x = std::min(camera_->translation_.x, movableArea_.right);
+	camera_->translation_.y = std::max(camera_->translation_.y, movableArea_.bottom);
+	camera_->translation_.y = std::min(camera_->translation_.y, movableArea_.top);
+
+	// 行列を更新する
+	camera_->UpdateMatrix();
+}
+
+// 追従スクロールの更新
+void CameraController::UpdateFollow() {
 	// 追従対象のワールドトランスフォームを参照
 	const WorldTransform& targetWorldTransform = target_->GetWorldTransform();
 	const Vector3& targetVelocity = target_->GetVeloctiy();
@@ -35,15 +58,11 @@ void CameraController::Update() {
 	camera_->translation_.x = std::min(camera_->translation_.x, targetWorldTransform.translation_.x + cameraMovementMargin.right);
 	camera_->translation_.y = std::max(camera_->translation_.y, targetWorldTransform.translation_.y + cameraMovementMargin.bottom);
 	camera_->translation_.y = std::min(camera_->translation_.y, targetWorldTransform.translation_.y + cameraMovementMargin.top);
+}
 
-	// 移動範囲制限
-	camera_->translation_.x = std::max(camera_->translation_.x, movableArea_.left);
-	camera_->translation_.x = std::min(camera_->translation_.x, movableArea_.right);
-	camera_->translation_.y = std::max(camera_->translation_.y, movableArea_.bottom);
-	camera_->translation_.y = std::min(camera_->translation_.y, movableArea_.top);
-
-	// 行列を更新する
-	camera_->UpdateMatrix();
+// 強制スクロールの更新
+void CameraController::UpdateForcedScroll() {
+	camera_->translation_.x += forceScrollSpeed_;
 }
 
 void CameraController::Reset() {
