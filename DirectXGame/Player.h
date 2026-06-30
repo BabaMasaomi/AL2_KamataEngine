@@ -139,6 +139,9 @@ public:
 	/// <param name="enemy">敵の情報</param>
 	void OncollisionEnemy(Enemy* enemy);
 
+	// 攻撃中かどうかを判定する
+	bool IsAttack();
+
 	// Gettterを用意する(追従カメラのために必要)
 	// 平行移動した位置
 	KamataEngine::WorldTransform& GetWorldTransform() { return worldTransform_; }

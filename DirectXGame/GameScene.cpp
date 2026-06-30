@@ -72,7 +72,7 @@ void GameScene::Initialize() {
 	Vector3 playerPos = mapChipField_->GetMapChipPositionByIndex(13, 17);
 
 	// プレイヤーの初期化
-	player_->Initialize(model_, modelAttack_, & camera_, playerPos);
+	player_->Initialize(model_, modelAttack_, &camera_, playerPos);
 
 	// マップチップデータのセット
 	player_->SetMapChipField(mapChipField_);
@@ -143,7 +143,6 @@ void GameScene::Initialize() {
 	// デバッグカメラの生成
 	debugCamera_ = new DebugCamera(1280, 720);
 
-
 	/*--------------- フェード ---------------*/
 	fade_ = new Fade();
 	fade_->Initialize();
@@ -152,9 +151,6 @@ void GameScene::Initialize() {
 
 /*-------------------- 更新 --------------------*/
 void GameScene::Update() {
-	// フェーズの切り替え処理
-	ChangePhase();
-
 	// フェーズごとの更新処理
 	switch (phase_) {
 	case ::GameScene::Phase::kFadeIn:
@@ -223,6 +219,15 @@ void GameScene::Update() {
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
 		}
+
+		// デスフラグの立った敵を削除
+		enemies_.remove_if([](Enemy* enemy) {
+			if (enemy->GetIsDead()) {
+				delete enemy;
+				return true;
+			}
+			return false;
+		});
 
 		// カメラコントローラの更新
 		camaraController_->Update();
@@ -321,6 +326,9 @@ void GameScene::Update() {
 	default:
 		break;
 	}
+
+	// フェーズの切り替え処理
+	ChangePhase();
 
 #ifdef _DEBUG
 	// デバッグ起動

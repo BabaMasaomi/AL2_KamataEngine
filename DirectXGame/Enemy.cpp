@@ -96,5 +96,8 @@ AABB Enemy::GetAABB() {
 }
 
 void Enemy::OnCollisionPlayer(Player* player) { 
+	// 攻撃中のプレイヤーと接触したら死亡
+	isDead_ = true;
+
 	(void)player;
 }

@@ -751,8 +751,22 @@ AABB Player::GetAABB() {
 }
 
 void Player::OncollisionEnemy(Enemy* enemy) {
+	// 攻撃中なら敵に触れても死なない
+	if (IsAttack()) {
+		return;
+	}
 	// 敵と接触したら死亡
 	isDead_ = true;
 
 	(void)enemy;
+}
+
+// 攻撃中かどうかを判定する
+bool Player::IsAttack() {
+	// 攻撃中
+	if (behaivior_ == Behavior::kAttack) {
+		return true;
+	}
+	// 攻撃してない
+	return false;
 }

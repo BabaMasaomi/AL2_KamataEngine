@@ -15,6 +15,49 @@ class Player;
 //};
 
 class Enemy {
+public:
+	// コンストラクタ&デストラクタ
+	Enemy();
+	~Enemy();
+
+	/// <summary>
+	/// 敵の初期化
+	/// </summary>
+	/// <param name="model"></param>
+	/// <param name="pos"></param>
+	void Initialize(KamataEngine::Model* model, KamataEngine::Camera* camera, const KamataEngine::Vector3 pos);
+
+	/// <summary>
+	/// 敵の更新
+	/// </summary>
+	void Update();
+
+	/// <summary>
+	/// 敵の描画
+	/// </summary>
+	void Draw();
+
+	/// <summary>
+	/// 自機のworld座標を取得
+	/// </summary>
+	/// <returns></returns>
+	KamataEngine::Vector3 GetWorldPos();
+
+	/// <summary>
+	/// AABBを取得
+	/// </summary>
+	/// <returns></returns>
+	AABB GetAABB();
+
+	/// <summary>
+	/// 敵の衝突判定処理
+	/// </summary>
+	/// <param name="player">自機の情報</param>
+	void OnCollisionPlayer(Player* player);
+
+	// ゲッター
+	bool GetIsDead() const { return isDead_; }
+
 private:
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -54,43 +97,6 @@ private:
 	// 経過時間
 	float walkTimer_ = 0.0f;
 
-public:
-	// コンストラクタ&デストラクタ
-	Enemy();
-	~Enemy();
-
-	/// <summary>
-	/// 敵の初期化
-	/// </summary>
-	/// <param name="model"></param>
-	/// <param name="pos"></param>
-	void Initialize(KamataEngine::Model* model, KamataEngine::Camera* camera, const KamataEngine::Vector3 pos);
-
-	/// <summary>
-	/// 敵の更新
-	/// </summary>
-	void Update();
-
-	/// <summary>
-	/// 敵の描画
-	/// </summary>
-	void Draw();
-
-	/// <summary>
-	/// 自機のworld座標を取得
-	/// </summary>
-	/// <returns></returns>
-	KamataEngine::Vector3 GetWorldPos();
-
-	/// <summary>
-	/// AABBを取得
-	/// </summary>
-	/// <returns></returns>
-	 AABB GetAABB();
-
-	/// <summary>
-	/// 敵の衝突判定処理
-	/// </summary>
-	/// <param name="player">自機の情報</param>
-	void OnCollisionPlayer(Player* player);
+	// 死んだか
+	bool isDead_ = false;
 };
