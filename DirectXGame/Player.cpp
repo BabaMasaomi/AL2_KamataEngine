@@ -106,9 +106,18 @@ void Player::BehaviorRootInitialize() {
 /// </summary>
 void Player::BehaviorRootUpdate() {
 	// 攻撃キーを押したら
-	if (Input::GetInstance()->PushKey(DIK_Z)) {
-		// 攻撃ビヘイビアをリクエスト
-		behaiviorRequest_ = Behavior::kAttack;
+	if (Input::GetInstance()->TriggerKey(DIK_Z)) {
+		// 地上なら何度でも攻撃可能
+		if (onGround_) {
+			// 攻撃ビヘイビアをリクエスト
+			behaiviorRequest_ = Behavior::kAttack;
+
+		} else if (canAirAttack_) {
+			// 空中なら1回だけ
+			// 攻撃ビヘイビアをリクエスト
+			behaiviorRequest_ = Behavior::kAttack;
+			canAirAttack_ = false;
+		}
 	}
 
 	/*========== ①移動入力 ==========*/
@@ -707,6 +716,7 @@ void Player::SwitchGroundingState(const CollisionMapInfo& info) {
 		if (info.isLanding) {
 			// 着地状態に切り替える
 			onGround_ = true;
+			canAirAttack_ = true;
 
 			// 着地時にX方向速度を減衰させる(無くていいよ)
 			// velocity_.x *= (1.0f - kAttenuationLanding);

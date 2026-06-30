@@ -247,6 +247,9 @@ private:
 	// 現在の攻撃フェーズ
 	AttackPhase attackPhase_ = AttackPhase::kCharge;
 
+	// 空中で攻撃可能か
+	bool canAirAttack_ = true;
+
 	// 攻撃エフェクトモデル
 	KamataEngine::Model* modelAttack_ = nullptr;
 	// エフェクト用ワールドトランスフォーム
