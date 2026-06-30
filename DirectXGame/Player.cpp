@@ -90,10 +90,16 @@ void Player::Update() {
 	collisionMapInfo.MovementAmount = velocity_;
 
 	// 画面外に出ない様に
+	bool isPushedByCamera = false;
 	float left = camera_->translation_.x - 21.0f;
+	float pushX = 0.0f;
+
 	if (worldTransform_.translation_.x < left) {
-		worldTransform_.translation_.x = left;
+		pushX = left - worldTransform_.translation_.x;
+		isPushedByCamera = true;
 	}
+
+	collisionMapInfo.MovementAmount.x += pushX;
 
 	// マップ衝突チェック
 	MapCollisionCheck(collisionMapInfo);
@@ -109,6 +115,10 @@ void Player::Update() {
 
 	/*========== ⑥接地状態の切り替え ==========*/
 	SwitchGroundingState(collisionMapInfo);
+
+	if (isPushedByCamera && collisionMapInfo.isWallCollide) {
+		isDead_ = true;
+	}
 
 	// 攻撃エフェクトの位置更新
 	if (isAttackEffect_) {
