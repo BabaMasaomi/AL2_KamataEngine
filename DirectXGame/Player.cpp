@@ -89,6 +89,12 @@ void Player::Update() {
 	// 移動量に速度の値をコピー
 	collisionMapInfo.MovementAmount = velocity_;
 
+	// 画面外に出ない様に
+	float left = camera_->translation_.x - 21.0f;
+	if (worldTransform_.translation_.x < left) {
+		worldTransform_.translation_.x = left;
+	}
+
 	// マップ衝突チェック
 	MapCollisionCheck(collisionMapInfo);
 
