@@ -429,10 +429,14 @@ void GameScene::CheckAllCollisions() {
 		if (CheckAABBCollision(aabb1, aabb2)) {
 			// 衝突応答
 			// 自キャラの衝突判定時の処理
-			player_->OncollisionEnemy(enemy);
+			if (player_->CanReceiveDamage()) {
+				player_->OnCollisionEnemy(enemy);
+			}
 
 			// 敵の衝突判定時の処理
-			enemy->OnCollisionPlayer(player_);
+			if (player_->CanAttackEnemy()) {
+				enemy->OnCollisionPlayer(player_);
+			}
 		}
 	}
 

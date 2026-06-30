@@ -137,10 +137,14 @@ public:
 	/// 自機の衝突判定処理
 	/// </summary>
 	/// <param name="enemy">敵の情報</param>
-	void OncollisionEnemy(Enemy* enemy);
+	void OnCollisionEnemy(Enemy* enemy);
 
 	// 攻撃中かどうかを判定する
 	bool IsAttack();
+
+
+	bool CanAttackEnemy() const;
+	bool CanReceiveDamage() const;
 
 	// Gettterを用意する(追従カメラのために必要)
 	// 平行移動した位置

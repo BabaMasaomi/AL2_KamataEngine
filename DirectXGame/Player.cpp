@@ -750,7 +750,7 @@ AABB Player::GetAABB() {
 	return aabb;
 }
 
-void Player::OncollisionEnemy(Enemy* enemy) {
+void Player::OnCollisionEnemy(Enemy* enemy) {
 	// 攻撃中なら敵に触れても死なない
 	if (IsAttack()) {
 		return;
@@ -769,4 +769,14 @@ bool Player::IsAttack() {
 	}
 	// 攻撃してない
 	return false;
+}
+
+bool Player::CanAttackEnemy() const {
+	// 攻撃中かつ突進部分の間
+	return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kDash;
+}
+
+bool Player::CanReceiveDamage() const {
+	// 攻撃中じゃない
+	return behaivior_ != Behavior::kAttack;
 }
