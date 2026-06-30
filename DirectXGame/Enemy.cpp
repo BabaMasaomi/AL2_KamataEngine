@@ -47,6 +47,46 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 /// 敵の更新
 /// </summary>
 void Enemy::Update() {
+	// Behavior変更
+	if (behaviorRequest_ != BehaviorEnemy::kUnknown) {
+
+		behavior_ = behaviorRequest_;
+
+		switch (behavior_) {
+			// 通常行動初期化
+		case BehaviorEnemy::kRoot:
+			BehaviorRootInitialize();
+			break;
+			// 死亡アクション初期化
+		case BehaviorEnemy::kDeath:
+			BehaviorDeathInitialize();
+			break;
+		}
+		// 振る舞いリクエストをリセット
+		behaviorRequest_ = BehaviorEnemy::kUnknown;
+	}
+
+	// Behaviorの実行
+	switch (behavior_) {
+		// 通常行動更新
+	case BehaviorEnemy::kRoot:
+		BehaviorRootUpdate();
+		break;
+		// 死亡アクション更新
+	case BehaviorEnemy::kDeath:
+		BehaviorDeathUpdate();
+		break;
+	}
+
+	// 行列を定数バッファに転送
+	transform_.worldMatrixUpdate(worldTransform_);
+}
+
+// 通常行動初期化
+void Enemy::BehaviorRootInitialize() {}
+
+// 通常行動更新
+void Enemy::BehaviorRootUpdate() {
 	// 移動処理
 	worldTransform_.translation_.x += velocity_.x;
 
@@ -60,9 +100,34 @@ void Enemy::Update() {
 
 	// 度をラジアンに変換
 	worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
+}
 
-	// 行列を定数バッファに転送
-	transform_.worldMatrixUpdate(worldTransform_);
+// 死亡アクション初期化
+void Enemy::BehaviorDeathInitialize() {
+	deathTimer_ = 0.0f;
+	velocity_ = {};
+	isCollisionDisenabled_ = true;
+}
+
+// 死亡アクション更新
+void Enemy::BehaviorDeathUpdate() {
+	deathTimer_ += 1.0f / 60.0f;
+
+	float t = std::clamp(deathTimer_ / kDeathTime, 0.0f, 1.0f);
+
+	// 敵を回転させる
+	worldTransform_.rotation_.x = 3.f;
+	worldTransform_.rotation_.y += 1.0f;
+
+	// 敵のサイズを縮小
+	worldTransform_.scale_.x = EaseOut(2.0f, 0.0f, t);
+	worldTransform_.scale_.y = EaseOut(2.0f, 0.0f, t);
+	worldTransform_.scale_.z = EaseOut(2.0f, 0.0f, t);
+
+	// 死亡を確定
+	if (deathTimer_ >= kDeathTime) {
+		isDead_ = true;
+	}
 }
 
 /// <summary>
@@ -95,9 +160,16 @@ AABB Enemy::GetAABB() {
 	return aabb;
 }
 
-void Enemy::OnCollisionPlayer(Player* player) { 
+void Enemy::OnCollisionPlayer(Player* player) {
+	// 通常時じゃなければ判定を飛ばす
+	if (behavior_ != BehaviorEnemy::kRoot) {
+		return;
+	}
 	// 攻撃中のプレイヤーと接触したら死亡
-	isDead_ = true;
+	behaviorRequest_ = BehaviorEnemy::kDeath;
 
 	(void)player;
 }
+
+// 当たり判定が無効化されているか
+bool Enemy::IsCollisionDisEnabled() const { return isCollisionDisenabled_; }

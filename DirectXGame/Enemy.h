@@ -14,6 +14,13 @@ class Player;
 //	kLeft,
 //};
 
+// 振る舞い
+enum class BehaviorEnemy {
+	kRoot,
+	kDeath,
+	kUnknown,
+};
+
 class Enemy {
 public:
 	// コンストラクタ&デストラクタ
@@ -31,6 +38,15 @@ public:
 	/// 敵の更新
 	/// </summary>
 	void Update();
+
+	// ルートビヘイビア用更新
+	void BehaviorRootUpdate();  // 通常行動更新
+	void BehaviorDeathUpdate(); // 死亡アクション更新
+
+	// 通常行動初期化
+	void BehaviorRootInitialize();
+	// 死亡アクション初期化
+	void BehaviorDeathInitialize();
 
 	/// <summary>
 	/// 敵の描画
@@ -54,6 +70,9 @@ public:
 	/// </summary>
 	/// <param name="player">自機の情報</param>
 	void OnCollisionPlayer(Player* player);
+
+	// 当たり判定が無効化されているか
+	bool IsCollisionDisEnabled() const;
 
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
@@ -99,4 +118,17 @@ private:
 
 	// 死んだか
 	bool isDead_ = false;
+
+	// 死亡アクション時間管理
+	float deathTimer_ = 0.0f;
+	static constexpr float kDeathTime = 1.0f;
+
+	bool isCollisionDisenabled_ = false;
+
+	/*--------------- ビヘイビア管理用 ---------------*/
+	// 現在の振る舞い
+	BehaviorEnemy behavior_ = BehaviorEnemy::kRoot;
+
+	// リクエスト
+	BehaviorEnemy behaviorRequest_ = BehaviorEnemy::kUnknown;
 };

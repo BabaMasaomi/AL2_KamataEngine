@@ -418,6 +418,10 @@ void GameScene::CheckAllCollisions() {
 
 	// 敵全員と当たり判定
 	for (Enemy* enemy : enemies_) {
+		// コリジョン無効の敵はスキップ
+		if (enemy->IsCollisionDisEnabled()) {
+			continue;
+		}
 		// 敵のAABB取得
 		aabb2 = enemy->GetAABB();
 
