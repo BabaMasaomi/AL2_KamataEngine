@@ -91,14 +91,16 @@ void Player::Update() {
 
 	// 画面外に出ない様に
 	bool isPushedByCamera = false;
+
 	float left = camera_->translation_.x - 21.0f;
 	float pushX = 0.0f;
-
+	// 画面漏れを対処
 	if (worldTransform_.translation_.x < left) {
 		pushX = left - worldTransform_.translation_.x;
 		isPushedByCamera = true;
 	}
 
+	// 圧死判定用に数値を管理
 	collisionMapInfo.MovementAmount.x += pushX;
 
 	// マップ衝突チェック
@@ -126,6 +128,10 @@ void Player::Update() {
 		worldTransformAttack_.rotation_ = worldTransform_.rotation_;
 		transform_.worldMatrixUpdate(worldTransformAttack_);
 	}
+
+	/*========== ⑧行列計算 ==========*/
+	// 行列を定数バッファに転送
+	transform_.worldMatrixUpdate(worldTransform_);
 }
 
 // 通常行動初期化
@@ -254,11 +260,7 @@ void Player::BehaviorRootUpdate() {
 		//	自キャラの角度を調整する
 		// 旋回タイマーを使って角度を線形補間する
 		worldTransform_.rotation_.y = turnFirstRotationY_ + (destinationRotationY - turnFirstRotationY_) * easeT;
-	}
-
-	/*========== ⑧行列計算 ==========*/
-	// 行列を定数バッファに転送
-	transform_.worldMatrixUpdate(worldTransform_);
+	}	
 }
 
 // 攻撃行動初期化
@@ -336,9 +338,6 @@ void Player::BehaviorAttackUpdate() {
 	default:
 		break;
 	}
-
-	// 行列を定数バッファに転送
-	transform_.worldMatrixUpdate(worldTransform_);
 }
 
 /// <summary>
