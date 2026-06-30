@@ -83,6 +83,27 @@ void Player::Update() {
 		break;
 	}
 
+	/*========== ②移動量を加味して衝突判定する ==========*/
+	// 衝突情報を初期化
+	CollisionMapInfo collisionMapInfo;
+	// 移動量に速度の値をコピー
+	collisionMapInfo.MovementAmount = velocity_;
+
+	// マップ衝突チェック
+	MapCollisionCheck(collisionMapInfo);
+
+	/*========== ③判定結果を反映して移動 ==========*/
+	MoveReflectingResult(collisionMapInfo);
+
+	/*========== ④天井に接触している時の処理 ==========*/
+	ContactWithCeiling(collisionMapInfo);
+
+	/*========== ⑤壁に接触している時の処理 ==========*/
+	ContactWithWall(collisionMapInfo);
+
+	/*========== ⑥接地状態の切り替え ==========*/
+	SwitchGroundingState(collisionMapInfo);
+
 	// 攻撃エフェクトの位置更新
 	if (isAttackEffect_) {
 		worldTransformAttack_.translation_ = worldTransform_.translation_;
@@ -191,28 +212,7 @@ void Player::BehaviorRootUpdate() {
 
 		// 落下速度制限
 		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
-	}
-
-	/*========== ②移動量を加味して衝突判定する ==========*/
-	// 衝突情報を初期化
-	CollisionMapInfo collisionMapInfo;
-	// 移動量に速度の値をコピー
-	collisionMapInfo.MovementAmount = velocity_;
-
-	// マップ衝突チェック
-	MapCollisionCheck(collisionMapInfo);
-
-	/*========== ③判定結果を反映して移動 ==========*/
-	MoveReflectingResult(collisionMapInfo);
-
-	/*========== ④天井に接触している時の処理 ==========*/
-	ContactWithCeiling(collisionMapInfo);
-
-	/*========== ⑤壁に接触している時の処理 ==========*/
-	ContactWithWall(collisionMapInfo);
-
-	/*========== ⑥接地状態の切り替え ==========*/
-	SwitchGroundingState(collisionMapInfo);
+	}	
 
 	/*========== ⑦旋回制御 ==========*/
 	if (turnTimer_ > 0.0f) {
@@ -298,28 +298,6 @@ void Player::BehaviorAttackUpdate() {
 			attackPhase_ = AttackPhase::kGap;
 			dashTimer_ = 0.0f;
 		}
-
-		/*========== ②移動量を加味して衝突判定する ==========*/
-		// 衝突情報を初期化
-		CollisionMapInfo collisionMapInfo;
-		// 移動量に速度の値をコピー
-		collisionMapInfo.MovementAmount = velocity_;
-
-		// マップ衝突チェック
-		MapCollisionCheck(collisionMapInfo);
-
-		/*========== ③判定結果を反映して移動 ==========*/
-		MoveReflectingResult(collisionMapInfo);
-
-		/*========== ④天井に接触している時の処理 ==========*/
-		ContactWithCeiling(collisionMapInfo);
-
-		/*========== ⑤壁に接触している時の処理 ==========*/
-		ContactWithWall(collisionMapInfo);
-
-		/*========== ⑥接地状態の切り替え ==========*/
-		SwitchGroundingState(collisionMapInfo);
-
 		break;
 	}
 

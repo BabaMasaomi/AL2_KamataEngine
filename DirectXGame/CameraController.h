@@ -71,7 +71,7 @@ private:
 	static inline const Rect cameraMovementMargin = {-100.0f, 100.0f, -100.0f, 100.0f};
 
 	/*--------------- モード管理 ---------------*/
-	Mode mode_ = Mode::kFollow;
+	Mode mode_ = Mode::kForcedScroll;
 
 	float forceScrollSpeed_ = 0.08f;
 };
