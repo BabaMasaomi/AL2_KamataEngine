@@ -764,7 +764,7 @@ void Player::OncollisionEnemy(Enemy* enemy) {
 // 攻撃中かどうかを判定する
 bool Player::IsAttack() {
 	// 攻撃中
-	if (behaivior_ == Behavior::kAttack) {
+	if (attackPhase_ == AttackPhase::kDash) {
 		return true;
 	}
 	// 攻撃してない
