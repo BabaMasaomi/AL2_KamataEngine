@@ -1,4 +1,6 @@
 ﻿#include "HitEffect.h"
+#include "Math.h"
+#include <random>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -16,6 +18,19 @@ void HitEffect::Initialise(Vector3 pos) {
 	// 円形エフェクト
 	circleWorldTransform_.translation_ = pos;
 	circleWorldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
+
+	// 乱数範囲を指定
+	std::uniform_real_distribution<float> rotationDistribution(0.0f, 100.0f);
+	// 楕円エフェクト
+	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+		worldTransform.scale_ = {4.0f, 0.3f, 2.0f};
+		// 楕円エフェクトの傾きの乱数
+		float ellipseRotate = rotationDistribution(randomEngine);
+		worldTransform.rotation_ = {0.0f, 0.0f, ellipseRotate};
+		worldTransform.translation_ = pos;
+
+		worldTransform.Initialize();
+	}
 }
 
 /// <summary>
@@ -23,7 +38,12 @@ void HitEffect::Initialise(Vector3 pos) {
 /// </summary>
 void HitEffect::UpDate() {
 	// 行列を定数バッファに転送
+	// 円エフェクト
 	transform_.worldMatrixUpdate(circleWorldTransform_);
+	// 楕円エフェクト
+	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+		transform_.worldMatrixUpdate(worldTransform);
+	}
 }
 
 /// <summary>
@@ -31,7 +51,12 @@ void HitEffect::UpDate() {
 /// </summary>
 void HitEffect::Draw() {
 	// モデルの描画
+	// 円エフェクト
 	model_->Draw(circleWorldTransform_, *camera_);
+	// 楕円エフェクト
+	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+		model_->Draw(worldTransform, *camera_);
+	}
 }
 
 /// <summary>

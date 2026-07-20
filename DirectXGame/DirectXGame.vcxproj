@@ -162,6 +162,7 @@
     <ClCompile Include="HitEffect.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MapChipField.cpp" />
+    <ClCompile Include="Math.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="Skydome.cpp" />
     <ClCompile Include="temporaryAABB.cpp" />
@@ -273,6 +274,7 @@
     <ClInclude Include="GameScene.h" />
     <ClInclude Include="HitEffect.h" />
     <ClInclude Include="MapChipField.h" />
+    <ClInclude Include="Math.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="Skydome.h" />
     <ClInclude Include="temporaryAABB.h" />

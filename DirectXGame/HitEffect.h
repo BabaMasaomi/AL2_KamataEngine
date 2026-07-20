@@ -26,5 +26,6 @@ private:
 
 	// 円のワールドトランスフォーム
 	KamataEngine::WorldTransform circleWorldTransform_;
-
+	// 楕円のワールドトランスフォーム
+	std::array<KamataEngine::WorldTransform, 2> ellipseWorldTransform_;
 };
