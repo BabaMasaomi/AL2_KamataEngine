@@ -15,6 +15,10 @@ GameScene::~GameScene() {
 	delete modelSkydome_; // 天球の3Dモデルの解放
 	delete modelBlocks_;  // ブロックの3Dモデルの解放
 
+	for (HitEffect* hitEffect : hitEffects_) {
+		delete hitEffect; // ヒットエフェクトの3Dモデルの解放
+	}
+
 	// 複数ブロックの解放処理
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
@@ -93,8 +97,11 @@ void GameScene::Initialize() {
 
 		// 敵の初期化
 		newEnemy->Initialize(modelEnemy_, &camera_, enemyPos);
-
+		//
 		enemies_.push_back(newEnemy);
+
+		// 敵にゲームシーンを渡す
+		newEnemy->SetGameScene(this);
 	}
 
 	// マップチップデータのセット
@@ -123,6 +130,13 @@ void GameScene::Initialize() {
 
 	// パーティクルのワールドトランスフォームの初期化
 	worldTransformPlayer_.Initialize();
+
+	/*--------------- ヒットエフェクト ---------------*/
+	// モデルの読み込み
+	hitEffectModel_ = Model::CreateFromOBJ("particle", true);
+
+	HitEffect::SetModel(hitEffectModel_);
+	HitEffect::SetCamera(&camera_);
 
 	/*--------------- カメラ ---------------*/
 	// カメラコントローラの生成
@@ -229,6 +243,11 @@ void GameScene::Update() {
 			return false;
 		});
 
+		// ヒットエフェクトの更新
+		for (HitEffect* hitEffect : hitEffects_) {
+			hitEffect->UpDate();
+		}
+
 		// カメラコントローラの更新
 		camaraController_->Update();
 
@@ -278,6 +297,11 @@ void GameScene::Update() {
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
+		}
+
+		// ヒットエフェクトの更新
+		for (HitEffect* hitEffect : hitEffects_) {
+			hitEffect->UpDate();
 		}
 
 		// パーティクルの更新
@@ -367,6 +391,11 @@ void GameScene::Draw() {
 		enemy->Draw();
 	}
 
+	// ヒットエフェクトの描画
+	for (HitEffect* hitEffect : hitEffects_) {
+		hitEffect->Draw();
+	}
+
 	// パーティクルの描画
 	if (deathParticles_ != nullptr) {
 		deathParticles_->Draw();
@@ -379,6 +408,12 @@ void GameScene::Draw() {
 	fade_->Draw();
 
 	Model::PostDraw();
+}
+
+/*-------------------- エフェクトの生成 --------------------*/
+void GameScene::CreateHitEffect(Vector3 pos) {
+	HitEffect* newHitEffect = HitEffect::Create(pos);
+	hitEffects_.push_back(newHitEffect);
 }
 
 /*-------------------- 表示ブロックの生成 --------------------*/

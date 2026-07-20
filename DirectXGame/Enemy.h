@@ -5,7 +5,7 @@
 
 // 前方宣言
 class MapChipField;
-
+class GameScene;
 class Player;
 
 // 左右の向き
@@ -76,10 +76,13 @@ public:
 
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
+	// セッター
+	void SetGameScene(GameScene* gameScene);
 
 private:
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
+	GameScene* gameScene_ = nullptr;
 
 	// マップチップによるフィールド
 	MapChipField* mapChipField_ = nullptr;

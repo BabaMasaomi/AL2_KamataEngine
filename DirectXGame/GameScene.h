@@ -1,28 +1,26 @@
 ﻿#pragma once
 #include "CameraController.h"
+#include "DeathParticles.h"
+#include "Enemy.h"
+#include "Fade.h"
+#include "HitEffect.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Player.h"
-#include "Enemy.h"
 #include "Skydome.h"
-#include "DeathParticles.h"
-#include "Fade.h"
 #include "Transform.h"
 #include "temporaryAABB.h"
 #include <vector>
 
 class GameScene {
 private:
-	// privateにしておく必要があるやつ
-	//// カメラ
-	// KamataEngine::Camera camera_;
 
 	// ゲームのフェーズ(型)
 	enum class Phase {
-		kFadeIn,	// フェードイン
-		kPlay,		// プレイ中
-		kDeath,		// 死亡
-		kFadeOut,	// フェードアウト
+		kFadeIn,  // フェードイン
+		kPlay,    // プレイ中
+		kDeath,   // 死亡
+		kFadeOut, // フェードアウト
 	};
 
 	// ゲームのフェーズ(変数)
@@ -56,7 +54,7 @@ private:
 	// 敵のワールドトランスフォーム
 	KamataEngine::WorldTransform worldTransformEnemy_;
 
-	// 敵
+	// 敵のリスト
 	std::list<Enemy*> enemies_ = {};
 
 	/*-------------------- 天球 --------------------*/
@@ -82,6 +80,13 @@ private:
 
 	// 死亡パーティクル
 	DeathParticles* deathParticles_ = nullptr;
+
+	/*--------------- HitEffect ---------------*/
+	// ヒットエフェクトの3Dモデル
+	KamataEngine::Model* hitEffectModel_ = nullptr;
+
+	// ヒットエフェクトのリスト
+	std::list<HitEffect*> hitEffects_ = {};	
 
 	/*-------------------- 追従カメラ --------------------*/
 	// カメラ
@@ -119,8 +124,11 @@ public:
 	// 描画
 	void Draw();
 
+	// エフェクトの生成
+	void CreateHitEffect(KamataEngine::Vector3 pos);
+
 	// 表示ブロックの生成
-	void GenerateBlocks();
+	void GenerateBlocks();	
 
 	// 総当たり当たり判定
 	void CheckAllCollisions();

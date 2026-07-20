@@ -146,16 +146,16 @@ public:
 	bool CanAttackEnemy() const;
 	bool CanReceiveDamage() const;
 
-	// Gettterを用意する(追従カメラのために必要)
+
+	// アクセッサ
+	// ゲッター
+	bool GetIsDead() { return isDead_; }
+	
 	// 平行移動した位置
 	KamataEngine::WorldTransform& GetWorldTransform() { return worldTransform_; }
 
 	// 速度
 	const KamataEngine::Vector3& GetVeloctiy() const { return velocity_; }
-
-	// アクセッサ
-	// ゲッター
-	bool GetIsDead() { return isDead_; }
 
 	// セッター
 	// 自機のワールド座標

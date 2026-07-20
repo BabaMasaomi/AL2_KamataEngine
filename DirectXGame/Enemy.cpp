@@ -1,5 +1,6 @@
 ﻿#define NOMINMAX
 #include "Enemy.h"
+#include "GameScene.h"
 #include "MapChipField.h"
 #include <algorithm>
 #include <cassert>
@@ -168,8 +169,18 @@ void Enemy::OnCollisionPlayer(Player* player) {
 	// 攻撃中のプレイヤーと接触したら死亡
 	behaviorRequest_ = BehaviorEnemy::kDeath;
 
+	// 敵と自キャラの中間にエフェクトを生成
+	Vector3 effectPos = Vector3(
+	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, 
+		(worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
+	    0.0f);
+	gameScene_->CreateHitEffect(effectPos);
+
 	(void)player;
 }
 
 // 当たり判定が無効化されているか
 bool Enemy::IsCollisionDisEnabled() const { return isCollisionDisenabled_; }
+
+
+void Enemy::SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }
