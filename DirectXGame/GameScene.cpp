@@ -248,6 +248,16 @@ void GameScene::Update() {
 			hitEffect->UpDate();
 		}
 
+		// デスフラグの立ったエフェクトを削除
+		hitEffects_.remove_if([](HitEffect* effect) {
+			if (effect->GetIsDead()) {
+				delete effect;
+				return true;
+			}
+
+			return false;
+		});
+
 		// カメラコントローラの更新
 		camaraController_->Update();
 
@@ -303,6 +313,16 @@ void GameScene::Update() {
 		for (HitEffect* hitEffect : hitEffects_) {
 			hitEffect->UpDate();
 		}
+
+		// デスフラグの立ったエフェクトを削除
+		hitEffects_.remove_if([](HitEffect* effect) {
+			if (effect->GetIsDead()) {
+				delete effect;
+				return true;
+			}
+
+			return false;
+		});
 
 		// パーティクルの更新
 		if (deathParticles_ != nullptr) {
