@@ -743,6 +743,7 @@ AABB Player::GetAABB() {
 	return aabb;
 }
 
+// 敵との当たり判定
 void Player::OnCollisionEnemy(Enemy* enemy) {
 	// 攻撃中なら敵に触れても死なない
 	if (IsAttack()) {
@@ -752,6 +753,18 @@ void Player::OnCollisionEnemy(Enemy* enemy) {
 	isDead_ = true;
 
 	(void)enemy;
+}
+
+// 盾敵との当たり判定
+void Player::OnCollisionShieldEnemy(ShieldEnemy* shieldEnemy) {
+	// 攻撃中なら敵に触れても死なない
+	if (IsAttack()) {
+		return;
+	}
+	// 敵と接触したら死亡
+	isDead_ = true;
+
+	(void)shieldEnemy;
 }
 
 // 攻撃中かどうかを判定する

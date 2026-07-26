@@ -7,6 +7,7 @@
 class MapChipField;
 
 class Enemy;
+class ShieldEnemy;
 
 // 左右の向き
 enum class LRDirection {
@@ -138,6 +139,12 @@ public:
 	/// </summary>
 	/// <param name="enemy">敵の情報</param>
 	void OnCollisionEnemy(Enemy* enemy);
+
+	/// <summary>
+	/// 自機の衝突判定処理
+	/// </summary>
+	/// <param name="enemy">敵の情報</param>
+	void OnCollisionShieldEnemy(ShieldEnemy* enemy);
 
 	// 攻撃中かどうかを判定する
 	bool IsAttack();
