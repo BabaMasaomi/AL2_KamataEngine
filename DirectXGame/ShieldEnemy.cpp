@@ -100,7 +100,7 @@ void ShieldEnemy::BehaviorRootUpdate() {
 	float degree = kWalkMotionAngleStart + kWalkMotionAngleEnd * ((param + 1.0f) / 2.0f);
 
 	// 度をラジアンに変換
-	worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
+	worldTransform_.rotation_.y = std::numbers::pi_v<float> * 3.0f / 2.0f + degree * std::numbers::pi_v<float> / 180.0f;
 }
 
 // 死亡アクション初期化
@@ -166,14 +166,18 @@ void ShieldEnemy::OnCollisionPlayer(Player* player) {
 	if (behavior_ != BehaviorShieldEnemy::kRoot) {
 		return;
 	}
+
+	// 向き合っていたら攻撃を無効化
+	if (player->GetLRDirection() != lrDirection_) {
+		return;
+	}
+
 	// 攻撃中のプレイヤーと接触したら死亡
 	behaviorRequest_ = BehaviorShieldEnemy::kDeath;
 
 	// 敵と自キャラの中間にエフェクトを生成
-	Vector3 effectPos = Vector3(
-	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, 
-		(worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
-	    0.0f);
+	Vector3 effectPos =
+	    Vector3((worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f, 0.0f);
 	gameScene_->CreateHitEffect(effectPos);
 
 	(void)player;
@@ -181,6 +185,5 @@ void ShieldEnemy::OnCollisionPlayer(Player* player) {
 
 // 当たり判定が無効化されているか
 bool ShieldEnemy::IsCollisionDisEnabled() const { return isCollisionDisenabled_; }
-
 
 void ShieldEnemy::SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }

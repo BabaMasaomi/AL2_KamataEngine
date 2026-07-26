@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "KamataEngine.h"
+#include "BasicCharacterComposition.h"
 #include "Transform.h"
 #include "temporaryAABB.h"
 
@@ -9,11 +10,11 @@ class MapChipField;
 class Enemy;
 class ShieldEnemy;
 
-// 左右の向き
-enum class LRDirection {
-	kRight,
-	kLeft,
-};
+//// 左右の向き
+//enum class LRDirection {
+//	kRight,
+//	kLeft,
+//};
 
 // マップとの当たり判定情報
 struct CollisionMapInfo {
@@ -163,6 +164,9 @@ public:
 
 	// 速度
 	const KamataEngine::Vector3& GetVeloctiy() const { return velocity_; }
+
+	// 向き
+	LRDirection GetLRDirection() const { return lrDirection_; }
 
 	// セッター
 	// 自機のワールド座標

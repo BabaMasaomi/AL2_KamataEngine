@@ -271,7 +271,7 @@ void GameScene::Update() {
 			return false;
 		});
 		
-		// 敵の更新
+		// 盾敵の更新
 		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
 			shieldEnemy->Update();
 		}

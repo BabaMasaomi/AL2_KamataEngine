@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <random>
 
+
+
 // 乱数生成エンジン
 inline std::random_device seedGenerator;
 // メルセンヌ・ツイスターエンジン(64bit版)

@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "KamataEngine.h"
+#include "BasicCharacterComposition.h"
 #include "Transform.h"
 #include "temporaryAABB.h"
 
@@ -8,7 +9,7 @@ class MapChipField;
 class GameScene;
 class Player;
 
-// 左右の向き
+//// 左右の向き
 // enum class LRDirection {
 //	kRight,
 //	kLeft,
@@ -95,6 +96,9 @@ private:
 
 	// カメラ
 	KamataEngine::Camera* camera_ = nullptr;
+
+	// 向きを設定
+	LRDirection lrDirection_ = LRDirection::kLeft;
 
 	// 以下、移動などに使う変数をまとめる
 	KamataEngine::Vector3 velocity_ = {};
