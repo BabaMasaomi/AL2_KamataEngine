@@ -7,6 +7,8 @@ using namespace KamataEngine;
 
 // 静的メンバ変数の実体
 Model* HitEffect::model_ = nullptr;
+Model* HitEffect::hitModel_ = nullptr;
+Model* HitEffect::guardModel_ = nullptr;
 Camera* HitEffect::camera_ = nullptr;
 
 /// <summary>
@@ -146,12 +148,28 @@ void HitEffect::BehaviorFadeOutUpdate() {
 /// </summary>
 void HitEffect::Draw() {
 	// モデルの描画
+	if (effectType_ == HitEffectType::kHit) {
+		model_ = hitModel_;
+	} else {
+		model_ = guardModel_;
+	}
+
 	// 円エフェクト
 	model_->Draw(circleWorldTransform_, *camera_);
 	// 楕円エフェクト
-	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
-		model_->Draw(worldTransform, *camera_);
+	if (model_ == hitModel_) {
+		for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+			model_->Draw(worldTransform, *camera_);
+		}
 	}
+
+	//// モデルの描画
+	//// 円エフェクト
+	//model_->Draw(circleWorldTransform_, *camera_);
+	//// 楕円エフェクト
+	//for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+	//	model_->Draw(worldTransform, *camera_);
+	//}
 }
 
 /// <summary>
@@ -165,7 +183,7 @@ HitEffect* HitEffect::Create(Vector3 pos, HitEffectType type) {
 	// newの失敗を検出
 	assert(instance);
 	// インスタンスの初期化
-	instance->Initialise(pos,type);
+	instance->Initialise(pos, type);
 	// 初期化したインスタンスを返す
 	return instance;
 }

@@ -157,8 +157,10 @@ void GameScene::Initialize() {
 	/*--------------- ヒットエフェクト ---------------*/
 	// モデルの読み込み
 	hitEffectModel_ = Model::CreateFromOBJ("particle", true);
+	guardEffectModel_ = Model::CreateFromOBJ("ring", true);
 
-	HitEffect::SetModel(hitEffectModel_);
+	HitEffect::SetHitModel(hitEffectModel_);
+	HitEffect::SetGuardModel(guardEffectModel_);
 	HitEffect::SetCamera(&camera_);
 
 	/*--------------- カメラ ---------------*/

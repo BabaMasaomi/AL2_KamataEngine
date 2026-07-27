@@ -95,6 +95,8 @@ private:
 	/*--------------- HitEffect ---------------*/
 	// ヒットエフェクトの3Dモデル
 	KamataEngine::Model* hitEffectModel_ = nullptr;
+	// ガードエフェクトのモデル
+	KamataEngine::Model* guardEffectModel_ = nullptr;
 
 	// ヒットエフェクトのリスト
 	std::list<HitEffect*> hitEffects_ = {};	

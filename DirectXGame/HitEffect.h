@@ -35,7 +35,8 @@ public:
 	bool GetIsDead() const { return isDead_; }
 
 	// セッター
-	static void SetModel(KamataEngine::Model* model) { model_ = model; }
+	static void SetHitModel(KamataEngine::Model* model) { hitModel_ = model; }
+	static void SetGuardModel(KamataEngine::Model* model) { guardModel_ = model; }
 	static void SetCamera(KamataEngine::Camera* camera) { camera_ = camera; }
 
 private:
@@ -43,7 +44,12 @@ private:
 	Transform transform_;
 
 	// モデル(借りてくる用)
+	// 総合用
 	static KamataEngine::Model* model_;
+	// ヒット用
+	static KamataEngine::Model* hitModel_;
+	// ガード用
+	static KamataEngine::Model* guardModel_;
 	// カメラ(借りてくる用
 	static KamataEngine::Camera* camera_;
 
