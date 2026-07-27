@@ -13,11 +13,14 @@ Camera* HitEffect::camera_ = nullptr;
 /// 初期化
 /// </summary>
 /// <param name="pos">エフェクトの発生座標</param>
-void HitEffect::Initialise(Vector3 pos) {
+void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 	circleWorldTransform_.Initialize();
 	// 円形エフェクト
 	circleWorldTransform_.translation_ = pos;
 	circleWorldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
+
+	// エフェクトの種類を初期化
+	effectType_ = type;
 
 	// 乱数範囲を指定
 	std::uniform_real_distribution<float> rotationDistribution(0.0f, 100.0f);
@@ -83,11 +86,24 @@ void HitEffect::BehaviorExpandInitialize() {
 
 // エフェクト発生の更新
 void HitEffect::BehaviorExpandUpdate() {
+	float expandTime;
+
+	if (effectType_ == HitEffectType::kHit) {
+		expandTime = 0.1f;
+	} else {
+		expandTime = 0.04f;
+	}
 	// タイマーを加算(1/60秒)
 	expandTimer_ += 1.0f / 60.0f;
 	// イージングでScaleを変更
-	float t = std::clamp(expandTimer_ / kExpandTime_, 0.0f, 1.0f);
-	float s = EaseOut(2.0f, 3.5f, t);
+	float t = std::clamp(expandTimer_ / expandTime, 0.0f, 1.0f);
+	float s;
+	// エフェクトの種類でイージングを変更
+	if (effectType_ == HitEffectType::kHit) {
+		s = EaseOut(2.0f, 3.5f, t);
+	} else {
+		s = EaseOut(0.5f, 5.0f, t);
+	}
 	// スケール変更
 	circleWorldTransform_.scale_ = {s, s, s};
 	// フェードアウトに移行
@@ -104,10 +120,17 @@ void HitEffect::BehaviorFadeOutInitialize() {
 
 // エフェクトフェードアウトの更新
 void HitEffect::BehaviorFadeOutUpdate() {
+	float fadeTime;
+
+	if (effectType_ == HitEffectType::kHit) {
+		fadeTime = 0.3f;
+	} else {
+		fadeTime = 0.12f;
+	}
 	// タイマーを加算(1/60秒)
 	fadeTimer_ += 1.0f / 60.0f;
 	// イージングでalpha値を変更
-	float t = std::clamp(fadeTimer_ / kFadeTime_, 0.0f, 1.0f);
+	float t = std::clamp(fadeTimer_ / fadeTime, 0.0f, 1.0f);
 	// 透明度を変更
 	alpha_ = EaseOut(1.0f, 0.0f, t);
 	// modelに反映させる
@@ -136,13 +159,13 @@ void HitEffect::Draw() {
 /// </summary>
 /// <param name="pos">エフェクトの発生座標</param>
 /// <returns></returns>
-HitEffect* HitEffect::Create(Vector3 pos) {
+HitEffect* HitEffect::Create(Vector3 pos, HitEffectType type) {
 	// インスタンス生成
 	HitEffect* instance = new HitEffect();
 	// newの失敗を検出
 	assert(instance);
 	// インスタンスの初期化
-	instance->Initialise(pos);
+	instance->Initialise(pos,type);
 	// 初期化したインスタンスを返す
 	return instance;
 }

@@ -136,7 +136,7 @@ public:
 	void Draw();
 
 	// エフェクトの生成
-	void CreateHitEffect(KamataEngine::Vector3 pos);
+	void CreateHitEffect(KamataEngine::Vector3 pos, HitEffectType type);
 
 	// 表示ブロックの生成
 	void GenerateBlocks();	

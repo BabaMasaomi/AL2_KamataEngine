@@ -2,6 +2,12 @@
 #include "KamataEngine.h"
 #include "Transform.h"
 
+// エフェクトの種類
+enum class HitEffectType {
+	kHit,
+	kGuard,
+};
+
 // 死亡演出の管理
 enum class HitEffectBehavior {
 	kExpand,  // 拡大
@@ -10,7 +16,7 @@ enum class HitEffectBehavior {
 
 class HitEffect {
 public:
-	void Initialise(KamataEngine::Vector3 pos);
+	void Initialise(KamataEngine::Vector3 pos, HitEffectType type);
 	void UpDate();
 
 	// エフェクトBehavior初期化
@@ -23,7 +29,7 @@ public:
 	void Draw();
 
 	// インスタンスの生成と初期化
-	static HitEffect* Create(KamataEngine::Vector3 pos);
+	static HitEffect* Create(KamataEngine::Vector3 pos, HitEffectType type);
 
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
@@ -59,6 +65,9 @@ private:
 	bool isDead_ = false;
 
 	/*--------------- ビヘイビア管理用 ---------------*/
+	// エフェクトの種類
+	HitEffectType effectType_ = HitEffectType::kHit;
+
 	// 現在の振る舞い
 	HitEffectBehavior behavior_ = HitEffectBehavior::kExpand;
 	// リクエスト

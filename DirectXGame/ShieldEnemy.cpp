@@ -169,6 +169,11 @@ void ShieldEnemy::OnCollisionPlayer(Player* player) {
 
 	// 向き合っていたら攻撃を無効化
 	if (player->GetLRDirection() != lrDirection_) {
+		// ガードエフェクトを出す
+		// 敵と自キャラの中間にエフェクトを生成
+		Vector3 effectPos =
+		    Vector3((worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f, 0.0f);
+		gameScene_->CreateHitEffect(effectPos, HitEffectType::kGuard);
 		return;
 	}
 
@@ -178,7 +183,7 @@ void ShieldEnemy::OnCollisionPlayer(Player* player) {
 	// 敵と自キャラの中間にエフェクトを生成
 	Vector3 effectPos =
 	    Vector3((worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f, 0.0f);
-	gameScene_->CreateHitEffect(effectPos);
+	gameScene_->CreateHitEffect(effectPos,HitEffectType::kHit);
 
 	(void)player;
 }

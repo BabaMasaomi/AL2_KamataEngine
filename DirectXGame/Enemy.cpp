@@ -174,7 +174,7 @@ void Enemy::OnCollisionPlayer(Player* player) {
 	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, 
 		(worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
 	    0.0f);
-	gameScene_->CreateHitEffect(effectPos);
+	gameScene_->CreateHitEffect(effectPos,HitEffectType::kHit);
 
 	(void)player;
 }

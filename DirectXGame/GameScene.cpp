@@ -270,7 +270,7 @@ void GameScene::Update() {
 			}
 			return false;
 		});
-		
+
 		// 盾敵の更新
 		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
 			shieldEnemy->Update();
@@ -483,8 +483,8 @@ void GameScene::Draw() {
 }
 
 /*-------------------- エフェクトの生成 --------------------*/
-void GameScene::CreateHitEffect(Vector3 pos) {
-	HitEffect* newHitEffect = HitEffect::Create(pos);
+void GameScene::CreateHitEffect(Vector3 pos, HitEffectType type) {
+	HitEffect* newHitEffect = HitEffect::Create(pos, type);
 	hitEffects_.push_back(newHitEffect);
 }
 
