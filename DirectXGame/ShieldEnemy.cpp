@@ -174,6 +174,9 @@ void ShieldEnemy::OnCollisionPlayer(Player* player) {
 		Vector3 effectPos =
 		    Vector3((worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f, 0.0f);
 		gameScene_->CreateHitEffect(effectPos, HitEffectType::kGuard);
+
+		// プレイヤーにノックバックを要求
+		player->RequestKnockBack(-1.0f);
 		return;
 	}
 

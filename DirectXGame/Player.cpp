@@ -60,6 +60,11 @@ void Player::Update() {
 			BehaviorAttackInitialize();
 			break;
 
+		case Behavior::kKnockBack:
+			// ノックバック初期化
+			BehaviorKnockBackInitialize();
+			break;
+
 		default:
 			break;
 		}
@@ -77,6 +82,11 @@ void Player::Update() {
 	case Behavior::kAttack:
 		// 攻撃行動更新
 		BehaviorAttackUpdate();
+		break;
+
+	case Behavior::kKnockBack:
+		// ノックバック更新
+		BehaviorKnockBackUpdate();
 		break;
 
 	default:
@@ -234,7 +244,7 @@ void Player::BehaviorRootUpdate() {
 
 		// 落下速度制限
 		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
-	}	
+	}
 
 	/*========== ⑦旋回制御 ==========*/
 	if (turnTimer_ > 0.0f) {
@@ -260,7 +270,7 @@ void Player::BehaviorRootUpdate() {
 		//	自キャラの角度を調整する
 		// 旋回タイマーを使って角度を線形補間する
 		worldTransform_.rotation_.y = turnFirstRotationY_ + (destinationRotationY - turnFirstRotationY_) * easeT;
-	}	
+	}
 }
 
 // 攻撃行動初期化
@@ -330,13 +340,46 @@ void Player::BehaviorAttackUpdate() {
 		if (gapTimer_ >= kGapTime_) {
 			behaiviorRequest_ = Behavior::kRoot;
 			gapTimer_ = 0.0f;
-			isAttackEffect_ = false;
+			EndAttack();
 		}
+		break;
+	}
+
+	case AttackPhase::kNone: {
 		break;
 	}
 
 	default:
 		break;
+	}
+}
+
+/// <summary>
+/// ノックバック初期化
+/// </summary>
+void Player::BehaviorKnockBackInitialize() {
+	// タイマー初期化
+	knockBackTimer_ = 0.0f;
+	// 速度初期化
+	velocity_.x = 0.0f;
+	velocity_.y = 0.0f;
+}
+
+/// <summary>
+/// ノックバック更新
+/// </summary>
+void Player::BehaviorKnockBackUpdate() {
+	// 攻撃を終了させる
+	EndAttack();
+	// ノックバック時間を計測
+	knockBackTimer_ += 1.0f / 60.0f;
+	// ノックバック方向に移動
+	velocity_.x = knockBackDirection_ * kKnockBackSpeed;
+	// 少し浮かせる
+	velocity_.y = 0.15f;
+	// ノックバック時間が経過したら通常行動に戻す
+	if (knockBackTimer_ >= kKnockBackTime) {
+		behaiviorRequest_ = Behavior::kRoot;
 	}
 }
 
@@ -777,12 +820,33 @@ bool Player::IsAttack() {
 	return false;
 }
 
+// 敵を攻撃できるか
 bool Player::CanAttackEnemy() const {
 	// 攻撃中かつ突進部分の間
 	return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kDash;
 }
 
+// ダメージを受けるか
 bool Player::CanReceiveDamage() const {
 	// 攻撃中じゃない
 	return behaivior_ != Behavior::kAttack;
+}
+
+// ノックバック要求を受け取る
+void Player::RequestKnockBack(float direction) {
+	knockBackDirection_ = direction;
+	behaiviorRequest_ = Behavior::kKnockBack;
+}
+
+// 攻撃を終了する
+void Player::EndAttack() {
+	// エフェクトを消す
+	isAttackEffect_ = false;
+	// スケールを元に戻す
+	worldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
+	// 攻撃フェーズをリセット
+	attackPhase_ = AttackPhase::kNone;
+	// タイマーをリセット
+	chargeTimer_ = 0.0f;
+	dashTimer_ = 0.0f;
 }

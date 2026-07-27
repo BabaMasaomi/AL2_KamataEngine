@@ -10,12 +10,6 @@ class MapChipField;
 class Enemy;
 class ShieldEnemy;
 
-//// 左右の向き
-//enum class LRDirection {
-//	kRight,
-//	kLeft,
-//};
-
 // マップとの当たり判定情報
 struct CollisionMapInfo {
 	bool isCeilingCollide = false;             // 天井衝突フラグ
@@ -36,9 +30,10 @@ enum Corner {
 
 // 振る舞い
 enum class Behavior {
-	kRoot,    // 通常状態
-	kAttack,  // 攻撃中
-	kUnKnown, // 変更リクエスト無し
+	kRoot,		// 通常状態
+	kAttack,	// 攻撃中
+	kKnockBack,	// ノックバック
+	kUnKnown,	// 変更リクエスト無し
 };
 
 // 攻撃フェーズ(型)
@@ -46,6 +41,7 @@ enum class AttackPhase {
 	kCharge, // 溜め
 	kDash,   // 攻撃
 	kGap,    // 後隙
+	kNone,   // 攻撃してない
 };
 
 class Player {
@@ -67,13 +63,16 @@ public:
 	void Update();
 
 	// ルートビヘイビア用更新
-	void BehaviorRootUpdate();   // 通常行動更新
-	void BehaviorAttackUpdate(); // 攻撃行動更新
+	void BehaviorRootUpdate();		// 通常行動更新
+	void BehaviorAttackUpdate();	// 攻撃行動更新
+	void BehaviorKnockBackUpdate(); // ノックバック更新
 
 	// 通常行動初期化
 	void BehaviorRootInitialize();
 	// 攻撃行動初期化
 	void BehaviorAttackInitialize();
+	// ノックバック初期化
+	void BehaviorKnockBackInitialize();
 
 	/// <summary>
 	/// 自機の描画
@@ -150,10 +149,16 @@ public:
 	// 攻撃中かどうかを判定する
 	bool IsAttack();
 
-
+	// 敵を攻撃できるか
 	bool CanAttackEnemy() const;
+	// ダメージを受けるか
 	bool CanReceiveDamage() const;
 
+	// ノックバック要求を受け取る
+	void RequestKnockBack(float direction);
+
+	// 攻撃を終わらせる
+	void EndAttack();
 
 	// アクセッサ
 	// ゲッター
@@ -267,6 +272,16 @@ private:
 
 	// 空中で攻撃可能か
 	bool canAirAttack_ = true;
+
+	// ノックバック方向
+	float knockBackDirection_ = 0.0f;
+
+	/*--------------- ノックバック用 ---------------*/
+	// タイマー
+	float knockBackTimer_ = 0.0f;
+
+	static constexpr float kKnockBackTime = 0.2f;
+	static constexpr float kKnockBackSpeed = 1.2f;
 
 	// 攻撃エフェクトモデル
 	KamataEngine::Model* modelAttack_ = nullptr;
