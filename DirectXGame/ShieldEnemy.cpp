@@ -62,6 +62,10 @@ void ShieldEnemy::Update() {
 		case BehaviorShieldEnemy::kDeath:
 			BehaviorDeathInitialize();
 			break;
+			// ガードアクション初期化
+		case BehaviorShieldEnemy::kGuard:
+			BehaviorGuardInitialize();
+			break;
 		}
 		// 振る舞いリクエストをリセット
 		behaviorRequest_ = BehaviorShieldEnemy::kUnknown;
@@ -77,6 +81,10 @@ void ShieldEnemy::Update() {
 	case BehaviorShieldEnemy::kDeath:
 		BehaviorDeathUpdate();
 		break;
+		// ガードアクション更新
+	case BehaviorShieldEnemy::kGuard:
+		BehaviorGuardUpdate();
+		break;
 	}
 
 	// 行列を定数バッファに転送
@@ -84,7 +92,13 @@ void ShieldEnemy::Update() {
 }
 
 // 通常行動初期化
-void ShieldEnemy::BehaviorRootInitialize() {}
+void ShieldEnemy::BehaviorRootInitialize() {
+	// 当たり判定を再び有効にする
+	isCollisionDisenabled_ = false;
+
+	// のけぞり角度を完全に元へ戻す
+	worldTransform_.rotation_.z = 0.0f;
+}
 
 // 通常行動更新
 void ShieldEnemy::BehaviorRootUpdate() {
@@ -131,6 +145,35 @@ void ShieldEnemy::BehaviorDeathUpdate() {
 	}
 }
 
+// ガードアクション初期化
+void ShieldEnemy::BehaviorGuardInitialize() {
+	// ガード中は当たり判定を無効化
+	isCollisionDisenabled_ = true;
+
+	// タイマーをリセット
+	guardTimer_ = 0.0f;
+}
+
+// ガードアクション更新
+void ShieldEnemy::BehaviorGuardUpdate() {
+	// ガード時間を進める
+	guardTimer_ += 1.0f / 60.0f;
+	float t = std::clamp(guardTimer_ / kGuardTime, 0.0f, 1.0f);
+
+	// 0 → 1 → 0
+	float recoil = std::sin(t * std::numbers::pi_v<float>);
+	// 25度をラジアンへ変換
+	float guardAngle = kGuardAngle * std::numbers::pi_v<float> / 180.0f;
+
+	// のけぞり
+	worldTransform_.rotation_.z = guardAngle * recoil;
+
+	// ガード終了
+	if (t >= 1.0f) {
+		behaviorRequest_ = BehaviorShieldEnemy::kRoot;
+	}
+}
+
 /// <summary>
 /// 敵の描画
 /// </summary>
@@ -161,6 +204,7 @@ AABB ShieldEnemy::GetAABB() {
 	return aabb;
 }
 
+// 敵の衝突判定処理
 void ShieldEnemy::OnCollisionPlayer(Player* player) {
 	// 通常時じゃなければ判定を飛ばす
 	if (behavior_ != BehaviorShieldEnemy::kRoot) {
@@ -169,6 +213,9 @@ void ShieldEnemy::OnCollisionPlayer(Player* player) {
 
 	// 向き合っていたら攻撃を無効化
 	if (player->GetLRDirection() != lrDirection_) {
+		// ガード行動へ
+		behaviorRequest_ = BehaviorShieldEnemy::kGuard;
+
 		// ガードエフェクトを出す
 		// 敵と自キャラの中間にエフェクトを生成
 		Vector3 effectPos =
@@ -186,7 +233,7 @@ void ShieldEnemy::OnCollisionPlayer(Player* player) {
 	// 敵と自キャラの中間にエフェクトを生成
 	Vector3 effectPos =
 	    Vector3((worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f, 0.0f);
-	gameScene_->CreateHitEffect(effectPos,HitEffectType::kHit);
+	gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
 
 	(void)player;
 }

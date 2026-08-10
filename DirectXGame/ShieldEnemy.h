@@ -19,6 +19,7 @@ class Player;
 enum class BehaviorShieldEnemy {
 	kRoot,
 	kDeath,
+	kGuard,
 	kUnknown,
 };
 
@@ -43,11 +44,14 @@ public:
 	// ルートビヘイビア用更新
 	void BehaviorRootUpdate();  // 通常行動更新
 	void BehaviorDeathUpdate(); // 死亡アクション更新
+	void BehaviorGuardUpdate();
 
 	// 通常行動初期化
 	void BehaviorRootInitialize();
 	// 死亡アクション初期化
 	void BehaviorDeathInitialize();
+	// 
+	void BehaviorGuardInitialize();
 
 	/// <summary>
 	/// 敵の描画
@@ -131,6 +135,13 @@ private:
 	static constexpr float kDeathTime = 1.0f;
 
 	bool isCollisionDisenabled_ = false;
+
+	// ガードアクション時間管理
+	float guardTimer_ = 0.0f;
+	static constexpr float kGuardTime = 0.35f;
+
+	// ガード時ののけぞり角度
+	static constexpr float kGuardAngle = -25.0f;
 
 	/*--------------- ビヘイビア管理用 ---------------*/
 	// 現在の振る舞い
