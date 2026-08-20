@@ -82,6 +82,9 @@ public:
 	// 当たり判定が無効化されているか
 	bool IsCollisionDisEnabled() const;
 
+	// プレイヤーに接触ダメージを与えられるか
+	bool CanDamagePlayer() const;
+
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
 	// セッター
@@ -167,7 +170,7 @@ private:
 	static constexpr float kHitKnockBackTime = 0.12f;
 
 	// ノックバック速度
-	static constexpr float kHitKnockBackSpeed = 0.18f;
+	static constexpr float kHitKnockBackSpeed = 1.18f;
 
 	/*--------------- 死亡演出管理 ---------------*/
 	// 死んだか

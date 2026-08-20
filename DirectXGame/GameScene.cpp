@@ -546,8 +546,8 @@ void GameScene::CheckAllCollisions() {
 		}
 
 		// 自キャラの衝突判定時の処理
-		if (!hitByPlayerAttack && CheckAABBCollision(playerAABB, enemyAABB)) {
-			// 自キャラの衝突判定時の処理
+		if (!hitByPlayerAttack && enemy->CanDamagePlayer() && CheckAABBCollision(playerAABB, enemyAABB)) {
+
 			if (player_->CanReceiveDamage()) {
 				player_->OnCollisionEnemy(enemy);
 			}

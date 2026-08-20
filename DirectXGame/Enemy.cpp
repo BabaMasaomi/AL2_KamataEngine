@@ -112,18 +112,18 @@ void Enemy::BehaviorRootInitialize() {
 
 // 通常行動更新
 void Enemy::BehaviorRootUpdate() {
-	// 移動処理
-	worldTransform_.translation_.x += velocity_.x;
+	// ノックバック中は通常移動しない
+	if (!isHitKnockBack_) {
+		worldTransform_.translation_.x += velocity_.x;
+	}
 
-	// 歩行アニメーション処理
-	// タイマーを加算(1/60秒)
+	// 歩行アニメーション
 	walkTimer_ += 1.0f / 60.0f;
 
-	// 回転アニメーション
 	float param = std::sin((walkTimer_ / kWalkMotionTime) * 2.0f * std::numbers::pi_v<float>);
+
 	float degree = kWalkMotionAngleStart + kWalkMotionAngleEnd * ((param + 1.0f) / 2.0f);
 
-	// 度をラジアンに変換
 	worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
 }
 
@@ -159,6 +159,11 @@ void Enemy::BehaviorDeathUpdate() {
 void Enemy::BehaviorStunnedInitialize() {
 	stunnedTimer_ = 0.0f;
 	stunnedMotionTimer_ = 0.0f;
+
+	velocity_ = {};
+
+	// 攻撃を受けるAABBは残す
+	isCollisionDisenabled_ = false;
 
 	// 通常移動は停止
 	velocity_ = {};
@@ -197,6 +202,7 @@ void Enemy::UpdateHitKnockBack() {
 	if (!isHitKnockBack_) {
 		return;
 	}
+
 
 	const float deltaTime = 1.0f / 60.0f;
 
@@ -244,8 +250,21 @@ AABB Enemy::GetAABB() {
 }
 
 bool Enemy::OnCollisionPlayer(Player* player) {
-	// 通常時じゃなければ判定を飛ばす
-	if (behavior_ != BehaviorEnemy::kRoot) {
+	// 死亡中は攻撃を受け付けない
+	if (behavior_ == BehaviorEnemy::kDeath) {
+		return false;
+	}
+
+	AttackType attackType = player->GetAttackType();
+
+	// 通常攻撃は通常状態の敵にだけ有効
+	if (attackType == AttackType::kNormal && behavior_ != BehaviorEnemy::kRoot) {
+		return false;
+	}
+
+	// 溜め攻撃は、現段階では
+	// 通常状態とスタン状態の両方で受け付ける
+	if (attackType == AttackType::kCharged && behavior_ != BehaviorEnemy::kRoot && behavior_ != BehaviorEnemy::kStunned) {
 		return false;
 	}
 
@@ -258,21 +277,32 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 
 	lastReceivedAttackSerial_ = attackSerial;
 
-	// プレイヤーから離れる方向を取得
+	// プレイヤーから離れる方向
 	float differenceX = worldTransform_.translation_.x - player->GetWorldTransform().translation_.x;
+
 	hitKnockBackDirection_ = differenceX >= 0.0f ? 1.0f : -1.0f;
 
-	// 小ノックバック開始
+	// ノックバック開始
 	isHitKnockBack_ = true;
 	hitKnockBackTimer_ = 0.0f;
 
-	// 通常攻撃を受けた回数を加算
-	++stunHitCount_;
+	// 通常攻撃が通常状態の敵に当たった場合だけ
+	// スタン回数を加算
+	if (attackType == AttackType::kNormal && behavior_ == BehaviorEnemy::kRoot) {
+
+		++stunHitCount_;
+
+		if (stunHitCount_ >= kStunHitCount) {
+			behaviorRequest_ = BehaviorEnemy::kStunned;
+		}
+	}
 
 	// ヒットエフェクト
 	Vector3 effectPos = {
 	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
+
 	    (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
+
 	    0.0f,
 	};
 
@@ -280,15 +310,16 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 		gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
 	}
 
-	// 規定回数に到達したら行動不能へ
-	if (stunHitCount_ >= kStunHitCount) {
-		behaviorRequest_ = BehaviorEnemy::kStunned;
-	}
-
 	return true;
 }
 
 // 当たり判定が無効化されているか
 bool Enemy::IsCollisionDisEnabled() const { return isCollisionDisenabled_; }
+
+bool Enemy::CanDamagePlayer() const {
+	// 通常行動中かつ、
+	// 攻撃による小ノックバック中でなければ危険
+	return behavior_ == BehaviorEnemy::kRoot && !isHitKnockBack_;
+}
 
 void Enemy::SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }

@@ -44,10 +44,11 @@ enum class AttackType {
 
 // 通常攻撃のフェーズ(型)
 enum class AttackPhase {
-	kStartup,  // 振りかぶり
-	kActive,   // バットを振る・攻撃判定あり
-	kRecovery, // 後隙
-	kNone,   // 攻撃してない
+	kCharging,	// ボタン長押しを計測
+	kStartup,	// 振りかぶり
+	kActive,	// バットを振る・攻撃判定あり
+	kRecovery,	// 後隙
+	kNone,		// 攻撃してない
 };
 
 class Player {
@@ -188,6 +189,10 @@ public:
 	// 現在の攻撃を識別する番号
 	uint32_t GetAttackSerial() const { return attackSerial_; }
 
+	AttackType GetAttackType() const { return attackType_; }
+
+	bool IsChargedAttack() const { return attackType_ == AttackType::kCharged; }
+
 	// セッター
 	// 自機のワールド座標
 	void SetWorldPos(const KamataEngine::Vector3& pos) { worldTransform_.translation_ = pos; }
@@ -263,6 +268,25 @@ private:
 	// 旋回時間(秒)
 	static inline const float kTimeTurn = 0.3f;
 
+	/*--------------- 溜め入力管理 ---------------*/
+	// 現在の攻撃種類
+	AttackType attackType_ = AttackType::kNormal;
+
+	// ボタンを押している時間
+	float chargeTimer_ = 0.0f;
+
+	// 溜め攻撃になるまでの時間
+	static constexpr float kChargeRequiredTime = 0.45f;
+
+	// 最大溜め時間
+	static constexpr float kChargeMaxTime = 1.0f;
+
+	// 最大まで溜まったか
+	bool isChargeReady_ = false;
+
+	// 溜め開始時のバット角度
+	static constexpr float kChargeBatAngle = -110.0f;
+
 	/*--------------- 通常攻撃用 ---------------*/
 	// 各フェーズのタイマー
 	float attackTimer_ = 0.0f;
@@ -307,16 +331,17 @@ private:
 	KamataEngine::WorldTransform worldTransformBat_;
 	bool isBatVisible_ = false;
 
-	/*--------------- ノックバック用 ---------------*/
+	/*--------------- プレイヤー被ノックバック ---------------*/
 	// ノックバック方向
 	float knockBackDirection_ = 0.0f;
 
 	// タイマー
-	float knockBackTimer_ = 0.0f;
+	float knockBackTimer_ = 0.0f;	
 
 	static constexpr float kKnockBackTime = 0.2f;
 	static constexpr float kKnockBackSpeed = 1.2f;
 
+	/*--------------- 武器モデル ---------------*/
 	// 攻撃エフェクトモデル
 	KamataEngine::Model* modelAttack_ = nullptr;
 	// エフェクト用ワールドトランスフォーム

@@ -281,14 +281,16 @@ void Player::BehaviorRootUpdate() {
 
 // 攻撃行動初期化
 void Player::BehaviorAttackInitialize() {
-	// 1回の攻撃開始ごとに番号を更新
-	++attackSerial_;
-
 	attackTimer_ = 0.0f;
-	attackPhase_ = AttackPhase::kStartup;
+	chargeTimer_ = 0.0f;
+
+	attackType_ = AttackType::kNormal;
+	attackPhase_ = AttackPhase::kCharging;
+
+	isChargeReady_ = false;
 	hasHitEnemy_ = false;
 
-	// 攻撃開始時はいったん横移動を止める
+	// 溜め中は横移動を停止
 	velocity_.x = 0.0f;
 
 	// バットを表示
@@ -305,54 +307,97 @@ void Player::BehaviorAttackUpdate() {
 	attackTimer_ += deltaTime;
 
 	switch (attackPhase_) {
+	case AttackPhase::kCharging: {
+		// Zキーを押している間
+		if (Input::GetInstance()->PushKey(DIK_Z)) {
+			chargeTimer_ += deltaTime;
+
+			chargeTimer_ = std::min(chargeTimer_, kChargeMaxTime);
+
+			float t = std::clamp(chargeTimer_ / kChargeRequiredTime, 0.0f, 1.0f);
+
+			// 溜めるほど大きく振りかぶる
+			float angleDegree = EaseOut(0.0f, kChargeBatAngle, t);
+
+			worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
+
+			// 規定時間に達した
+			if (chargeTimer_ >= kChargeRequiredTime) {
+				isChargeReady_ = true;
+			}
+
+			break;
+		}
+
+		// Zキーを離した瞬間
+		attackType_ = isChargeReady_ ? AttackType::kCharged : AttackType::kNormal;
+
+		// ここから1回の攻撃として扱う
+		++attackSerial_;
+
+		attackTimer_ = 0.0f;
+		attackPhase_ = AttackPhase::kStartup;
+		break;
+	}
+
 	case AttackPhase::kStartup: {
-		float t = std::clamp(attackTimer_ / kAttackStartupTime, 0.0f, 1.0f);
+		float startupTime = attackType_ == AttackType::kCharged ? 0.12f : kAttackStartupTime;
+		float t = std::clamp(attackTimer_ / startupTime, 0.0f, 1.0f);
+		float startAngle = attackType_ == AttackType::kCharged ? kChargeBatAngle : kBatAngleStart;
 
-		// 少し後ろへ振りかぶる
-		float angleDegree = EaseOut(0.0f, kBatAngleStart, t);
-
+		// 溜め中の角度から、攻撃開始位置へ合わせる
+		float angleDegree = EaseOut(startAngle, kBatAngleStart, t);
 		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
 
-		if (attackTimer_ >= kAttackStartupTime) {
+		if (attackTimer_ >= startupTime) {
 			attackTimer_ = 0.0f;
 			attackPhase_ = AttackPhase::kActive;
 		}
+
 		break;
 	}
 
 	case AttackPhase::kActive: {
-		float t = std::clamp(attackTimer_ / kAttackActiveTime, 0.0f, 1.0f);
+		float activeTime = attackType_ == AttackType::kCharged ? 0.16f : kAttackActiveTime;
 
-		// バットを前方へ振る
-		float angleDegree = EaseOut(kBatAngleStart, kBatAngleEnd, t);
+		float stepSpeed = attackType_ == AttackType::kCharged ? 0.32f : kAttackStepSpeed;
+
+		float swingStart = attackType_ == AttackType::kCharged ? kChargeBatAngle : kBatAngleStart;
+
+		float t = std::clamp(attackTimer_ / activeTime, 0.0f, 1.0f);
+
+		float angleDegree = EaseOut(swingStart, kBatAngleEnd, t);
 
 		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
 
-		// 突進ではなく、短い踏み込み
-		velocity_.x = direction * kAttackStepSpeed * (1.0f - t);
+		// 溜め攻撃は少し強く踏み込む
+		velocity_.x = direction * stepSpeed * (1.0f - t);
 
-		if (attackTimer_ >= kAttackActiveTime) {
+		if (attackTimer_ >= activeTime) {
 			velocity_.x = 0.0f;
 			attackTimer_ = 0.0f;
 			attackPhase_ = AttackPhase::kRecovery;
 		}
+
 		break;
 	}
 
 	case AttackPhase::kRecovery: {
-		float t = std::clamp(attackTimer_ / kAttackRecoveryTime, 0.0f, 1.0f);
+		float recoveryTime = attackType_ == AttackType::kCharged ? 0.25f : kAttackRecoveryTime;
 
-		// 振り終わったバットを元へ戻す
+		float t = std::clamp(attackTimer_ / recoveryTime, 0.0f, 1.0f);
+
 		float angleDegree = EaseOut(kBatAngleEnd, 0.0f, t);
 
 		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
 
 		velocity_.x = 0.0f;
 
-		if (attackTimer_ >= kAttackRecoveryTime) {
+		if (attackTimer_ >= recoveryTime) {
 			EndAttack();
 			behaiviorRequest_ = Behavior::kRoot;
 		}
+
 		break;
 	}
 
@@ -870,14 +915,18 @@ void Player::RequestKnockBack(float direction) {
 
 // 攻撃を終了する
 void Player::EndAttack() {
-	// エフェクトを消す
 	isAttackEffect_ = false;
-	// スケールを元に戻す
+
 	worldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
-	// 攻撃フェーズをリセット
+
+	worldTransformAttack_.rotation_.z = 0.0f;
+
 	attackPhase_ = AttackPhase::kNone;
-	// タイマーをリセット
+	attackType_ = AttackType::kNormal;
+
 	attackTimer_ = 0.0f;
-	// 命中したかのフラグを取り消す
+	chargeTimer_ = 0.0f;
+
+	isChargeReady_ = false;
 	hasHitEnemy_ = false;
 }
