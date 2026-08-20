@@ -134,8 +134,14 @@ void Player::Update() {
 
 	// 攻撃エフェクトの位置更新
 	if (isAttackEffect_) {
+		float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
+
 		worldTransformAttack_.translation_ = worldTransform_.translation_;
-		worldTransformAttack_.rotation_ = worldTransform_.rotation_;
+
+		worldTransformAttack_.translation_.x += direction * 0.8f;
+
+		worldTransformAttack_.translation_.y += 0.3f;
+
 		transform_.worldMatrixUpdate(worldTransformAttack_);
 	}
 
@@ -275,80 +281,82 @@ void Player::BehaviorRootUpdate() {
 
 // 攻撃行動初期化
 void Player::BehaviorAttackInitialize() {
-	dashTimer_ = 0.0f;
-	dashStartX_ = worldTransform_.translation_.x;
-	attackPhase_ = AttackPhase::kCharge;
+	// 1回の攻撃開始ごとに番号を更新
+	++attackSerial_;
 
-	// 現在の向きを記録
-	turnFirstRotationY_ = worldTransform_.rotation_.y;
+	attackTimer_ = 0.0f;
+	attackPhase_ = AttackPhase::kStartup;
+	hasHitEnemy_ = false;
+
+	// 攻撃開始時はいったん横移動を止める
+	velocity_.x = 0.0f;
+
+	// バットを表示
+	isAttackEffect_ = true;
 }
 
 /// <summary>
 /// 攻撃行動更新
 /// </summary>
 void Player::BehaviorAttackUpdate() {
+	const float deltaTime = 1.0f / 60.0f;
+	const float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
+
+	attackTimer_ += deltaTime;
 
 	switch (attackPhase_) {
-	case AttackPhase::kCharge: {
-		chargeTimer_ += 1.0f / 60.0f;
+	case AttackPhase::kStartup: {
+		float t = std::clamp(attackTimer_ / kAttackStartupTime, 0.0f, 1.0f);
 
-		float t = std::clamp(chargeTimer_ / kChargeTime_, 0.0f, 1.0f);
+		// 少し後ろへ振りかぶる
+		float angleDegree = EaseOut(0.0f, kBatAngleStart, t);
 
-		// 回転を補間
-		float destinationRotationY = (lrDirection_ == LRDirection::kRight) ? std::numbers::pi_v<float> / 2.0f : std::numbers::pi_v<float> * 3.0f / 2.0f;
-		worldTransform_.rotation_.y = EaseInOut(turnFirstRotationY_, destinationRotationY, t);
-		// Scaleを変更
-		worldTransform_.scale_.z = EaseOut(2.0f, 0.6f, t);
-		worldTransform_.scale_.y = EaseOut(2.0f, 3.2f, t);
-		// 突進動作へ移行
-		if (chargeTimer_ >= kChargeTime_) {
-			attackPhase_ = AttackPhase::kDash;
-			chargeTimer_ = 0.0f;
-			isAttackEffect_ = true;
+		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
+
+		if (attackTimer_ >= kAttackStartupTime) {
+			attackTimer_ = 0.0f;
+			attackPhase_ = AttackPhase::kActive;
 		}
 		break;
 	}
 
-	case AttackPhase::kDash: {
-		// 突進時間を計測
-		dashTimer_ += 1.0f / 60.0f;
+	case AttackPhase::kActive: {
+		float t = std::clamp(attackTimer_ / kAttackActiveTime, 0.0f, 1.0f);
 
-		// 移動
-		velocity_.x = lrDirection_ == LRDirection::kRight ? kDashSpeed : -kDashSpeed;
+		// バットを前方へ振る
+		float angleDegree = EaseOut(kBatAngleStart, kBatAngleEnd, t);
 
-		float t = std::clamp(dashTimer_ / kDashTime_, 0.0f, 1.0f);
+		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
 
-		worldTransform_.scale_.z = EaseOut(0.6f, 2.6f, t);
-		worldTransform_.scale_.y = EaseIn(3.2f, 1.4f, t);
-		// 後隙へ移行
-		if (dashTimer_ >= kDashTime_) {
+		// 突進ではなく、短い踏み込み
+		velocity_.x = direction * kAttackStepSpeed * (1.0f - t);
+
+		if (attackTimer_ >= kAttackActiveTime) {
 			velocity_.x = 0.0f;
-			attackPhase_ = AttackPhase::kGap;
-			dashTimer_ = 0.0f;
+			attackTimer_ = 0.0f;
+			attackPhase_ = AttackPhase::kRecovery;
 		}
 		break;
 	}
 
-	case AttackPhase::kGap: {
-		gapTimer_ += 1.0f / 60.0f;
+	case AttackPhase::kRecovery: {
+		float t = std::clamp(attackTimer_ / kAttackRecoveryTime, 0.0f, 1.0f);
 
-		float t = std::clamp(gapTimer_ / kGapTime_, 0.0f, 1.0f);
+		// 振り終わったバットを元へ戻す
+		float angleDegree = EaseOut(kBatAngleEnd, 0.0f, t);
 
-		worldTransform_.scale_.z = EaseOut(2.6f, 2.0f, t);
-		worldTransform_.scale_.y = EaseOut(1.4f, 2.0f, t);
-		// 突進動作を終了
-		if (gapTimer_ >= kGapTime_) {
-			behaiviorRequest_ = Behavior::kRoot;
-			gapTimer_ = 0.0f;
+		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
+
+		velocity_.x = 0.0f;
+
+		if (attackTimer_ >= kAttackRecoveryTime) {
 			EndAttack();
+			behaiviorRequest_ = Behavior::kRoot;
 		}
 		break;
 	}
 
-	case AttackPhase::kNone: {
-		break;
-	}
-
+	case AttackPhase::kNone:
 	default:
 		break;
 	}
@@ -775,6 +783,7 @@ Vector3 Player::GetWorldPos() {
 	return worldPos;
 }
 
+// 本体のAABBを取得
 AABB Player::GetAABB() {
 	Vector3 worldPos = GetWorldPos();
 
@@ -784,6 +793,31 @@ AABB Player::GetAABB() {
 	aabb.max = {worldPos.x + kWidth / 2.0f, worldPos.y + kHeight / 2.0f, worldPos.z + kWidth / 2.0f};
 
 	return aabb;
+}
+
+// 攻撃用のAABBを取得
+AABB Player::GetAttackAABB() const {
+	float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
+
+	Vector3 center = worldTransform_.translation_;
+
+	// プレイヤーの前方へ配置
+	center.x += direction * kAttackOffsetX;
+
+	AABB attackAABB;
+	attackAABB.min = {
+	    center.x - kAttackWidth / 2.0f,
+	    center.y - kAttackHeight / 2.0f,
+	    center.z - kWidth / 2.0f,
+	};
+
+	attackAABB.max = {
+	    center.x + kAttackWidth / 2.0f,
+	    center.y + kAttackHeight / 2.0f,
+	    center.z + kWidth / 2.0f,
+	};
+
+	return attackAABB;
 }
 
 // 敵との当たり判定
@@ -812,24 +846,20 @@ void Player::OnCollisionShieldEnemy(ShieldEnemy* shieldEnemy) {
 
 // 攻撃中かどうかを判定する
 bool Player::IsAttack() {
-	// 攻撃中
-	if (attackPhase_ == AttackPhase::kDash) {
-		return true;
-	}
-	// 攻撃してない
-	return false;
+	// スイングモーション中を攻撃中と判断
+	return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kActive;
 }
 
 // 敵を攻撃できるか
 bool Player::CanAttackEnemy() const {
-	// 攻撃中かつ突進部分の間
-	return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kDash;
+	// スイングモーション中のみ攻撃可能
+	return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kActive;
 }
 
 // ダメージを受けるか
 bool Player::CanReceiveDamage() const {
-	// 攻撃中じゃない
-	return behaivior_ != Behavior::kAttack;
+	// 食らいモーション中じゃない
+	return behaivior_ != Behavior::kKnockBack;
 }
 
 // ノックバック要求を受け取る
@@ -847,6 +877,7 @@ void Player::EndAttack() {
 	// 攻撃フェーズをリセット
 	attackPhase_ = AttackPhase::kNone;
 	// タイマーをリセット
-	chargeTimer_ = 0.0f;
-	dashTimer_ = 0.0f;
+	attackTimer_ = 0.0f;
+	// 命中したかのフラグを取り消す
+	hasHitEnemy_ = false;
 }

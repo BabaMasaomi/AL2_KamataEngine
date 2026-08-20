@@ -58,9 +58,16 @@ void Enemy::Update() {
 		case BehaviorEnemy::kRoot:
 			BehaviorRootInitialize();
 			break;
+			// スタン初期化
+		case BehaviorEnemy::kStunned:
+			BehaviorStunnedInitialize();
+			break;
 			// 死亡アクション初期化
 		case BehaviorEnemy::kDeath:
 			BehaviorDeathInitialize();
+			break;
+
+		default:
 			break;
 		}
 		// 振る舞いリクエストをリセット
@@ -73,18 +80,35 @@ void Enemy::Update() {
 	case BehaviorEnemy::kRoot:
 		BehaviorRootUpdate();
 		break;
+		// スタン更新
+	case BehaviorEnemy::kStunned:
+		BehaviorStunnedUpdate();
+		break;
 		// 死亡アクション更新
 	case BehaviorEnemy::kDeath:
 		BehaviorDeathUpdate();
 		break;
+
+	default:
+		break;
 	}
+
+	// 通常攻撃による小ノックバック
+	UpdateHitKnockBack();
 
 	// 行列を定数バッファに転送
 	transform_.worldMatrixUpdate(worldTransform_);
 }
 
 // 通常行動初期化
-void Enemy::BehaviorRootInitialize() {}
+void Enemy::BehaviorRootInitialize() {
+	isCollisionDisenabled_ = false;
+
+	worldTransform_.rotation_.x = 0.0f;
+	worldTransform_.rotation_.z = 0.0f;
+
+	velocity_ = {-kMoveSpeed, 0.0f, 0.0f};
+}
 
 // 通常行動更新
 void Enemy::BehaviorRootUpdate() {
@@ -131,9 +155,67 @@ void Enemy::BehaviorDeathUpdate() {
 	}
 }
 
-/// <summary>
-/// 敵の描画
-/// </summary>
+// スタン初期化
+void Enemy::BehaviorStunnedInitialize() {
+	stunnedTimer_ = 0.0f;
+	stunnedMotionTimer_ = 0.0f;
+
+	// 通常移動は停止
+	velocity_ = {};
+
+	isCollisionDisenabled_ = false;
+
+	// 上を向く
+	worldTransform_.rotation_.x = kStunnedLookUpAngle * std::numbers::pi_v<float> / 180.0f;
+
+	// 震えを中央から開始
+	worldTransform_.rotation_.z = 0.0f;
+}
+
+// スタン更新
+void Enemy::BehaviorStunnedUpdate() {
+	const float deltaTime = 1.0f / 60.0f;
+
+	stunnedTimer_ += deltaTime;
+	stunnedMotionTimer_ += deltaTime;
+
+	// 上向き角度を維持
+	worldTransform_.rotation_.x = kStunnedLookUpAngle * std::numbers::pi_v<float> / 180.0f;
+
+	// 上を向いたまま左右へ小刻みに震える
+	float shakeDegree = std::sin(stunnedMotionTimer_ * kStunnedShakeSpeed) * kStunnedShakeAngle;
+
+	worldTransform_.rotation_.z = shakeDegree * std::numbers::pi_v<float> / 180.0f;
+
+	if (stunnedTimer_ >= kStunnedTime) {
+		stunHitCount_ = 0;
+		behaviorRequest_ = BehaviorEnemy::kRoot;
+	}
+}
+
+void Enemy::UpdateHitKnockBack() {
+	if (!isHitKnockBack_) {
+		return;
+	}
+
+	const float deltaTime = 1.0f / 60.0f;
+
+	hitKnockBackTimer_ += deltaTime;
+
+	float t = std::clamp(hitKnockBackTimer_ / kHitKnockBackTime, 0.0f, 1.0f);
+
+	// 最初は速く、徐々に減速
+	float speed = kHitKnockBackSpeed * (1.0f - t);
+
+	worldTransform_.translation_.x += hitKnockBackDirection_ * speed;
+
+	if (t >= 1.0f) {
+		isHitKnockBack_ = false;
+		hitKnockBackTimer_ = 0.0f;
+	}
+}
+
+// 敵の描画
 void Enemy::Draw() {
 	// 敵を描画
 	modelEnemy_->Draw(worldTransform_, *camera_);
@@ -161,26 +243,52 @@ AABB Enemy::GetAABB() {
 	return aabb;
 }
 
-void Enemy::OnCollisionPlayer(Player* player) {
+bool Enemy::OnCollisionPlayer(Player* player) {
 	// 通常時じゃなければ判定を飛ばす
 	if (behavior_ != BehaviorEnemy::kRoot) {
-		return;
+		return false;
 	}
-	// 攻撃中のプレイヤーと接触したら死亡
-	behaviorRequest_ = BehaviorEnemy::kDeath;
 
-	// 敵と自キャラの中間にエフェクトを生成
-	Vector3 effectPos = Vector3(
-	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f, 
-		(worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
-	    0.0f);
-	gameScene_->CreateHitEffect(effectPos,HitEffectType::kHit);
+	// 同じスイングによる重複命中を防ぐ
+	uint32_t attackSerial = player->GetAttackSerial();
 
-	(void)player;
+	if (lastReceivedAttackSerial_ == attackSerial) {
+		return false;
+	}
+
+	lastReceivedAttackSerial_ = attackSerial;
+
+	// プレイヤーから離れる方向を取得
+	float differenceX = worldTransform_.translation_.x - player->GetWorldTransform().translation_.x;
+	hitKnockBackDirection_ = differenceX >= 0.0f ? 1.0f : -1.0f;
+
+	// 小ノックバック開始
+	isHitKnockBack_ = true;
+	hitKnockBackTimer_ = 0.0f;
+
+	// 通常攻撃を受けた回数を加算
+	++stunHitCount_;
+
+	// ヒットエフェクト
+	Vector3 effectPos = {
+	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
+	    (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
+	    0.0f,
+	};
+
+	if (gameScene_) {
+		gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
+	}
+
+	// 規定回数に到達したら行動不能へ
+	if (stunHitCount_ >= kStunHitCount) {
+		behaviorRequest_ = BehaviorEnemy::kStunned;
+	}
+
+	return true;
 }
 
 // 当たり判定が無効化されているか
 bool Enemy::IsCollisionDisEnabled() const { return isCollisionDisenabled_; }
-
 
 void Enemy::SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }

@@ -17,6 +17,7 @@ class Player;
 // 振る舞い
 enum class BehaviorEnemy {
 	kRoot,
+	kStunned,
 	kDeath,
 	kUnknown,
 };
@@ -40,13 +41,20 @@ public:
 	void Update();
 
 	// ルートビヘイビア用更新
-	void BehaviorRootUpdate();  // 通常行動更新
-	void BehaviorDeathUpdate(); // 死亡アクション更新
-
-	// 通常行動初期化
+	// 通常行動
 	void BehaviorRootInitialize();
-	// 死亡アクション初期化
+	void BehaviorRootUpdate();
+
+	// 死亡アクション
 	void BehaviorDeathInitialize();
+	void BehaviorDeathUpdate();
+
+	// スタン
+	void BehaviorStunnedInitialize();
+	void BehaviorStunnedUpdate();
+
+	// 通常攻撃を受けた際の小ノックバック更新
+	void UpdateHitKnockBack();
 
 	/// <summary>
 	/// 敵の描画
@@ -69,7 +77,7 @@ public:
 	/// 敵の衝突判定処理
 	/// </summary>
 	/// <param name="player">自機の情報</param>
-	void OnCollisionPlayer(Player* player);
+	bool OnCollisionPlayer(Player* player);
 
 	// 当たり判定が無効化されているか
 	bool IsCollisionDisEnabled() const;
@@ -119,6 +127,49 @@ private:
 	// 経過時間
 	float walkTimer_ = 0.0f;
 
+	/*--------------- スタン管理 ---------------*/
+	// 通常攻撃を受けた回数
+	int32_t stunHitCount_ = 0;
+
+	// 行動不能になるまでの攻撃回数
+	static constexpr int32_t kStunHitCount = 3;
+
+	// 行動不能時間
+	float stunnedTimer_ = 0.0f;
+	static constexpr float kStunnedTime = 3.0f;
+
+	// 最後に受けた攻撃の識別番号
+	uint32_t lastReceivedAttackSerial_ = 0;
+
+	// スタン演出用
+	float stunnedMotionTimer_ = 0.0f;
+
+	// スタン中に上を向く角度
+	static constexpr float kStunnedLookUpAngle = -70.0f;
+
+	// スタン中の震える角度
+	static constexpr float kStunnedShakeAngle = 7.0f;
+
+	// 震える速さ
+	static constexpr float kStunnedShakeSpeed = 35.0f;
+
+	/*--------------- 通常攻撃ノックバック ---------------*/
+	// ノックバック中か
+	bool isHitKnockBack_ = false;
+
+	// ノックバック方向
+	float hitKnockBackDirection_ = 0.0f;
+
+	// 経過時間
+	float hitKnockBackTimer_ = 0.0f;
+
+	// ノックバック時間
+	static constexpr float kHitKnockBackTime = 0.12f;
+
+	// ノックバック速度
+	static constexpr float kHitKnockBackSpeed = 0.18f;
+
+	/*--------------- 死亡演出管理 ---------------*/
 	// 死んだか
 	bool isDead_ = false;
 

@@ -36,11 +36,17 @@ enum class Behavior {
 	kUnKnown,	// 変更リクエスト無し
 };
 
-// 攻撃フェーズ(型)
+// 攻撃の種類
+enum class AttackType {
+	kNormal,  // バットの通常スイング
+	kCharged, // 行動不能の敵を吹き飛ばす強打
+};
+
+// 通常攻撃のフェーズ(型)
 enum class AttackPhase {
-	kCharge, // 溜め
-	kDash,   // 攻撃
-	kGap,    // 後隙
+	kStartup,  // 振りかぶり
+	kActive,   // バットを振る・攻撃判定あり
+	kRecovery, // 後隙
 	kNone,   // 攻撃してない
 };
 
@@ -135,6 +141,12 @@ public:
 	AABB GetAABB();
 
 	/// <summary>
+	/// 攻撃用のAABBを取得
+	/// </summary>
+	/// <returns></returns>
+	AABB GetAttackAABB() const;
+
+	/// <summary>
 	/// 自機の衝突判定処理
 	/// </summary>
 	/// <param name="enemy">敵の情報</param>
@@ -172,6 +184,9 @@ public:
 
 	// 向き
 	LRDirection GetLRDirection() const { return lrDirection_; }
+
+	// 現在の攻撃を識別する番号
+	uint32_t GetAttackSerial() const { return attackSerial_; }
 
 	// セッター
 	// 自機のワールド座標
@@ -248,35 +263,54 @@ private:
 	// 旋回時間(秒)
 	static inline const float kTimeTurn = 0.3f;
 
-	/*--------------- 攻撃行動用 ---------------*/
-	// 突進開始位置
-	float dashStartX_ = 0.0f;
+	/*--------------- 通常攻撃用 ---------------*/
+	// 各フェーズのタイマー
+	float attackTimer_ = 0.0f;
 
-	// 突進速度
-	const float kDashSpeed = 1.2f;
+	// 振りかぶり時間
+	static constexpr float kAttackStartupTime = 0.08f;
 
-	// 溜め時間管理
-	float chargeTimer_;
-	const float kChargeTime_ = 0.1f;
+	// 攻撃判定が出る時間
+	static constexpr float kAttackActiveTime = 0.12f;
 
-	// 突進時間管理
-	float dashTimer_;
-	const float kDashTime_ = 0.2f;
+	// 後隙
+	static constexpr float kAttackRecoveryTime = 0.15f;
 
-	// 後隙時間管理
-	float gapTimer_;
-	const float kGapTime_ = 0.1f;
+	// 踏み込み速度
+	static constexpr float kAttackStepSpeed = 0.22f;
+
+	// バットの振り始めと振り終わり
+	static constexpr float kBatAngleStart = -70.0f;
+	static constexpr float kBatAngleEnd = 70.0f;
+
+	// 攻撃判定の大きさ
+	static constexpr float kAttackWidth = 3.6f;
+	static constexpr float kAttackHeight = 2.6f;
+
+	// プレイヤー中心から攻撃判定までの距離
+	static constexpr float kAttackOffsetX = 1.8f;
+
+	// 1回の攻撃で同じ敵へ複数回当てないためのフラグ
+	bool hasHitEnemy_ = false;
 
 	// 現在の攻撃フェーズ
-	AttackPhase attackPhase_ = AttackPhase::kCharge;
+	AttackPhase attackPhase_ = AttackPhase::kStartup;
 
 	// 空中で攻撃可能か
 	bool canAirAttack_ = true;
 
+	// 攻撃を開始するたびに増える識別番号
+	uint32_t attackSerial_ = 0;
+
+	// バット用モデル
+	KamataEngine::Model* modelBat_ = nullptr;
+	KamataEngine::WorldTransform worldTransformBat_;
+	bool isBatVisible_ = false;
+
+	/*--------------- ノックバック用 ---------------*/
 	// ノックバック方向
 	float knockBackDirection_ = 0.0f;
 
-	/*--------------- ノックバック用 ---------------*/
 	// タイマー
 	float knockBackTimer_ = 0.0f;
 
