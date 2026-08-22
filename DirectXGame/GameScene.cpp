@@ -88,7 +88,7 @@ void GameScene::Initialize() {
 	// 敵のワールドトランスフォームの初期化
 	worldTransformEnemy_.Initialize();
 
-	for (int32_t i = 0; i < 3; i++) {
+	for (int32_t i = 0; i < 1; i++) {
 		// 敵の生成
 		Enemy* newEnemy = new Enemy();
 

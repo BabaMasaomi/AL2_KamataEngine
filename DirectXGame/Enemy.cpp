@@ -62,6 +62,10 @@ void Enemy::Update() {
 		case BehaviorEnemy::kStunned:
 			BehaviorStunnedInitialize();
 			break;
+			// 吹っ飛び初期化
+		case BehaviorEnemy::kBlownAway:
+			BehaviorBlownAwayInitialize();
+			break;
 			// 死亡アクション初期化
 		case BehaviorEnemy::kDeath:
 			BehaviorDeathInitialize();
@@ -83,6 +87,10 @@ void Enemy::Update() {
 		// スタン更新
 	case BehaviorEnemy::kStunned:
 		BehaviorStunnedUpdate();
+		break;
+	// 吹っ飛び更新
+	case BehaviorEnemy::kBlownAway:
+		BehaviorBlownAwayUpdate();
 		break;
 		// 死亡アクション更新
 	case BehaviorEnemy::kDeath:
@@ -198,11 +206,62 @@ void Enemy::BehaviorStunnedUpdate() {
 	}
 }
 
+// 吹っ飛び初期化
+void Enemy::BehaviorBlownAwayInitialize() {
+	blownAwayTimer_ = 0.0f;
+
+	// 通常攻撃の小ノックバックは終了
+	isHitKnockBack_ = false;
+	hitKnockBackTimer_ = 0.0f;
+
+	// 通常移動も停止
+	velocity_ = {};
+
+	// 吹き飛び初速
+	blownAwayVelocity_.x = blownAwayDirection_ * kBlownAwaySpeedX;
+
+	blownAwayVelocity_.y = kBlownAwaySpeedY;
+
+	blownAwayVelocity_.z = 0.0f;
+
+	// スタン値をリセット
+	stunHitCount_ = 0;
+
+	// 今後、敵同士の衝突判定を行うため
+	// AABB自体は残す
+	isCollisionDisenabled_ = false;
+}
+
+// 吹っ飛び更新
+void Enemy::BehaviorBlownAwayUpdate() {
+	const float deltaTime = 1.0f / 60.0f;
+
+	blownAwayTimer_ += deltaTime;
+
+	// 重力
+	blownAwayVelocity_.y -= kBlownAwayGravity;
+
+	blownAwayVelocity_.y = std::max(blownAwayVelocity_.y, -kBlownAwayMaxFallSpeed);
+
+	// 移動
+	worldTransform_.translation_.x += blownAwayVelocity_.x;
+
+	worldTransform_.translation_.y += blownAwayVelocity_.y;
+
+	// 飛びながら回転
+	worldTransform_.rotation_.z += kBlownAwayRotateSpeed * blownAwayDirection_;
+
+	// 現段階では一定時間後に死亡へ移行
+	if (blownAwayTimer_ >= kBlownAwayTime) {
+		behaviorRequest_ = BehaviorEnemy::kDeath;
+	}
+}
+
+// 小ノックバック更新
 void Enemy::UpdateHitKnockBack() {
 	if (!isHitKnockBack_) {
 		return;
 	}
-
 
 	const float deltaTime = 1.0f / 60.0f;
 
@@ -250,25 +309,22 @@ AABB Enemy::GetAABB() {
 }
 
 bool Enemy::OnCollisionPlayer(Player* player) {
-	// 死亡中は攻撃を受け付けない
-	if (behavior_ == BehaviorEnemy::kDeath) {
+	if (behavior_ == BehaviorEnemy::kDeath || behavior_ == BehaviorEnemy::kBlownAway) {
 		return false;
 	}
 
 	AttackType attackType = player->GetAttackType();
 
-	// 通常攻撃は通常状態の敵にだけ有効
+	// 通常攻撃は通常状態だけ
 	if (attackType == AttackType::kNormal && behavior_ != BehaviorEnemy::kRoot) {
 		return false;
 	}
 
-	// 溜め攻撃は、現段階では
-	// 通常状態とスタン状態の両方で受け付ける
+	// 溜め攻撃は通常・スタン状態で受け付ける
 	if (attackType == AttackType::kCharged && behavior_ != BehaviorEnemy::kRoot && behavior_ != BehaviorEnemy::kStunned) {
 		return false;
 	}
 
-	// 同じスイングによる重複命中を防ぐ
 	uint32_t attackSerial = player->GetAttackSerial();
 
 	if (lastReceivedAttackSerial_ == attackSerial) {
@@ -277,17 +333,41 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 
 	lastReceivedAttackSerial_ = attackSerial;
 
-	// プレイヤーから離れる方向
 	float differenceX = worldTransform_.translation_.x - player->GetWorldTransform().translation_.x;
 
-	hitKnockBackDirection_ = differenceX >= 0.0f ? 1.0f : -1.0f;
+	float hitDirection = differenceX >= 0.0f ? 1.0f : -1.0f;
 
-	// ノックバック開始
+	// スタン中への溜め攻撃
+	if (behavior_ == BehaviorEnemy::kStunned && attackType == AttackType::kCharged) {
+
+		blownAwayDirection_ = hitDirection;
+
+		isHitKnockBack_ = false;
+		hitKnockBackTimer_ = 0.0f;
+
+		behaviorRequest_ = BehaviorEnemy::kBlownAway;
+
+		Vector3 effectPos = {
+		    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
+
+		    (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
+
+		    0.0f,
+		};
+
+		if (gameScene_) {
+			gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
+		}
+
+		return true;
+	}
+
+	// 通常状態への攻撃は小ノックバック
+	hitKnockBackDirection_ = hitDirection;
 	isHitKnockBack_ = true;
 	hitKnockBackTimer_ = 0.0f;
 
-	// 通常攻撃が通常状態の敵に当たった場合だけ
-	// スタン回数を加算
+	// 通常攻撃だけスタンを蓄積
 	if (attackType == AttackType::kNormal && behavior_ == BehaviorEnemy::kRoot) {
 
 		++stunHitCount_;
@@ -297,7 +377,6 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 		}
 	}
 
-	// ヒットエフェクト
 	Vector3 effectPos = {
 	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
 

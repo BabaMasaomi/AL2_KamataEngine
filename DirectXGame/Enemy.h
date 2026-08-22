@@ -18,6 +18,7 @@ class Player;
 enum class BehaviorEnemy {
 	kRoot,
 	kStunned,
+	kBlownAway,
 	kDeath,
 	kUnknown,
 };
@@ -45,13 +46,17 @@ public:
 	void BehaviorRootInitialize();
 	void BehaviorRootUpdate();
 
-	// 死亡アクション
-	void BehaviorDeathInitialize();
-	void BehaviorDeathUpdate();
-
 	// スタン
 	void BehaviorStunnedInitialize();
 	void BehaviorStunnedUpdate();
+
+	// 吹き飛び
+	void BehaviorBlownAwayInitialize();
+	void BehaviorBlownAwayUpdate();
+
+	// 死亡アクション
+	void BehaviorDeathInitialize();
+	void BehaviorDeathUpdate();
 
 	// 通常攻撃を受けた際の小ノックバック更新
 	void UpdateHitKnockBack();
@@ -171,6 +176,34 @@ private:
 
 	// ノックバック速度
 	static constexpr float kHitKnockBackSpeed = 1.18f;
+
+	/*--------------- 溜め攻撃による吹き飛び ---------------*/
+	// 吹き飛ばす方向
+	float blownAwayDirection_ = 0.0f;
+
+	// 吹き飛び中の速度
+	KamataEngine::Vector3 blownAwayVelocity_ = {};
+
+	// 吹き飛び経過時間
+	float blownAwayTimer_ = 0.0f;
+
+	// 横方向の初速
+	static constexpr float kBlownAwaySpeedX = 0.75f;
+
+	// 上方向の初速
+	static constexpr float kBlownAwaySpeedY = 0.55f;
+
+	// 吹き飛び中の重力
+	static constexpr float kBlownAwayGravity = 0.04f;
+
+	// 最大落下速度
+	static constexpr float kBlownAwayMaxFallSpeed = 0.8f;
+
+	// 仮の吹き飛び継続時間
+	static constexpr float kBlownAwayTime = 1.2f;
+
+	// 回転速度
+	static constexpr float kBlownAwayRotateSpeed = 0.3f;
 
 	/*--------------- 死亡演出管理 ---------------*/
 	// 死んだか
