@@ -92,6 +92,9 @@ void GameScene::Initialize() {
 		// 敵の生成
 		Enemy* newEnemy = new Enemy();
 
+		// 
+		newEnemy->SetMapChipField(mapChipField_);
+
 		// 座標をマップチップ番号で指定
 		Vector3 enemyPos = mapChipField_->GetMapChipPositionByIndex(40 + i * 5, 18);
 

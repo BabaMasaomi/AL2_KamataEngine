@@ -23,6 +23,16 @@ enum class BehaviorEnemy {
 	kUnknown,
 };
 
+// マップとの当たり判定情報
+struct EnemyMapCollisionInfo {
+	bool hitLeft = false;
+	bool hitRight = false;
+	bool hitTop = false;
+	bool hitBottom = false;
+
+	KamataEngine::Vector3 movement = {};
+};
+
 class Enemy {
 public:
 	// コンストラクタ&デストラクタ
@@ -92,8 +102,15 @@ public:
 
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
+
+	int32_t GetBounceCount() const { return bounceCount_; }
+
+	bool IsBlownAway() const { return behavior_ == BehaviorEnemy::kBlownAway; }
+
 	// セッター
 	void SetGameScene(GameScene* gameScene);
+
+	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 
 private:
 	// Translateクラス内の関数を使える様にする
@@ -177,7 +194,11 @@ private:
 	// ノックバック速度
 	static constexpr float kHitKnockBackSpeed = 1.18f;
 
-	/*--------------- 溜め攻撃による吹き飛び ---------------*/
+	/*--------------- 直線吹き飛び ---------------*/
+	// 最初の吹っ飛び角度の最大最小
+	static constexpr float kInitialBlownAwayAngleMin = 5.0f;
+	static constexpr float kInitialBlownAwayAngleMax = 45.0f;
+
 	// 吹き飛ばす方向
 	float blownAwayDirection_ = 0.0f;
 
@@ -187,23 +208,48 @@ private:
 	// 吹き飛び経過時間
 	float blownAwayTimer_ = 0.0f;
 
-	// 横方向の初速
-	static constexpr float kBlownAwaySpeedX = 0.75f;
+	//// 横方向の初速
+	//static constexpr float kBlownAwaySpeedX = 0.75f;
 
-	// 上方向の初速
-	static constexpr float kBlownAwaySpeedY = 0.55f;
+	//// 上方向の初速
+	//static constexpr float kBlownAwaySpeedY = 0.55f;
 
-	// 吹き飛び中の重力
-	static constexpr float kBlownAwayGravity = 0.04f;
+	//// 吹き飛び中の重力
+	//static constexpr float kBlownAwayGravity = 0.04f;
 
-	// 最大落下速度
-	static constexpr float kBlownAwayMaxFallSpeed = 0.8f;
+	//// 最大落下速度
+	//static constexpr float kBlownAwayMaxFallSpeed = 0.8f;
 
-	// 仮の吹き飛び継続時間
-	static constexpr float kBlownAwayTime = 1.2f;
+	//// 仮の吹き飛び継続時間
+	//static constexpr float kBlownAwayTime = 1.2f;
+
+	// 初速
+	static constexpr float kBlownAwaySpeed = 0.75f;
+
+	// この時間までは速度を維持する
+	static constexpr float kBlownAwayFlyingTime = 2.5f;
+
+	// 終了時の速度減衰率
+	static constexpr float kBlownAwayStopAttenuation = 0.88f;
+
+	// この速度を下回ったら停止
+	static constexpr float kBlownAwayStopSpeed = 0.03f;
+
+	// 反射時に加えるランダム角度
+	static constexpr float kRandomBounceAngle = 40.0f;
 
 	// 回転速度
 	static constexpr float kBlownAwayRotateSpeed = 0.3f;
+
+	/*--------------- 地形反射 ---------------*/
+	// 反射回数
+	int32_t bounceCount_ = 0;
+
+	// ブロックとの余白
+	static constexpr float kBlownAwayMargin = 0.05f;
+
+	// 反射が弱くなって停止したか
+	bool isBlownAwayStopped_ = false;
 
 	/*--------------- 死亡演出管理 ---------------*/
 	// 死んだか
