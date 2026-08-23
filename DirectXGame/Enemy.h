@@ -100,12 +100,26 @@ public:
 	// プレイヤーに接触ダメージを与えられるか
 	bool CanDamagePlayer() const;
 
+	// 吹き飛び中で、他の敵へ攻撃できるか
+	bool CanHitOtherEnemy() const;
+
+	// 吹き飛び敵の攻撃を受けられるか
+	bool CanReceiveBlownAwayHit() const;
+
+	// 現在の飛行区間の攻撃権を消費
+	void ConsumeBlownAwayHit();
+
+	// 吹き飛んできた敵との衝突処理
+	void OnCollisionBlownAwayEnemy(float attackDirection);
+
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
 
 	int32_t GetBounceCount() const { return bounceCount_; }
 
 	bool IsBlownAway() const { return behavior_ == BehaviorEnemy::kBlownAway; }
+
+	float GetBlownAwayDirectionX() const;
 
 	// セッター
 	void SetGameScene(GameScene* gameScene);
@@ -240,6 +254,14 @@ private:
 
 	// 回転速度
 	static constexpr float kBlownAwayRotateSpeed = 0.3f;
+
+
+	/*--------------- 吹っ飛び攻撃 ---------------*/
+	// 現在の飛行区間で敵へ命中できるか
+	bool canHitEnemyInCurrentBounce_ = false;
+
+	// 吹き飛び敵が与えるスタン値
+	static constexpr int32_t kBlownAwayHitStunDamage = 2;
 
 	/*--------------- 地形反射 ---------------*/
 	// 反射回数

@@ -137,7 +137,7 @@ void Enemy::BehaviorRootInitialize() {
 void Enemy::BehaviorRootUpdate() {
 	// ノックバック中は通常移動しない
 	if (!isHitKnockBack_) {
-		worldTransform_.translation_.x += velocity_.x;
+		//worldTransform_.translation_.x += velocity_.x;
 	}
 
 	// 歩行アニメーション
@@ -228,6 +228,9 @@ void Enemy::BehaviorBlownAwayInitialize() {
 	bounceCount_ = 0;
 	isBlownAwayStopped_ = false;
 
+	// 最初の吹き飛び区間は1ヒット可能
+	canHitEnemyInCurrentBounce_ = true;
+
 	isHitKnockBack_ = false;
 	hitKnockBackTimer_ = 0.0f;
 
@@ -257,6 +260,10 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	const float deltaTime = 1.0f / 60.0f;
 
 	blownAwayTimer_ += deltaTime;
+
+	// 新しい飛行区間に入ったので、
+	// 再び敵1体へ命中可能
+	canHitEnemyInCurrentBounce_ = true;
 
 	// 反射が弱くなって停止した場合は、
 	// デバッグ中なのでその場に残す
@@ -572,6 +579,9 @@ void Enemy::BehaviorBlownAwayUpdate() {
 			blownAwayVelocity_ = {};
 			isBlownAwayStopped_ = true;
 		}
+
+		// 停止後は敵へダメージを与えない
+		canHitEnemyInCurrentBounce_ = false;
 	}
 
 	/*========== 回転 ==========*/
@@ -730,6 +740,49 @@ bool Enemy::CanDamagePlayer() const {
 	// 通常行動中かつ、
 	// 攻撃による小ノックバック中でなければ危険
 	return behavior_ == BehaviorEnemy::kRoot && !isHitKnockBack_;
+}
+
+// 吹き飛び中で、他の敵へ攻撃できるか
+bool Enemy::CanHitOtherEnemy() const { return behavior_ == BehaviorEnemy::kBlownAway && !isBlownAwayStopped_ && canHitEnemyInCurrentBounce_; }
+
+// 吹き飛び敵の攻撃を受けられるか
+bool Enemy::CanReceiveBlownAwayHit() const { return behavior_ == BehaviorEnemy::kRoot && !isHitKnockBack_ && !isDead_; }
+
+// 現在の飛行区間の攻撃権を消費
+void Enemy::ConsumeBlownAwayHit() { canHitEnemyInCurrentBounce_ = false; }
+
+// 吹き飛んできた敵との衝突処理
+void Enemy::OnCollisionBlownAwayEnemy(float attackDirection) {
+
+	// 行動可能な状態でなければ受け付けない
+	if (!CanReceiveBlownAwayHit()) {
+		return;
+	}
+
+	// 吹き飛んできた方向へ押し出す
+	hitKnockBackDirection_ = attackDirection;
+
+	isHitKnockBack_ = true;
+	hitKnockBackTimer_ = 0.0f;
+
+	// 通常攻撃より大きいスタンダメージ
+	stunHitCount_ += kBlownAwayHitStunDamage;
+
+	if (stunHitCount_ >= kStunHitCount) {
+		behaviorRequest_ = BehaviorEnemy::kStunned;
+	}
+}
+
+float Enemy::GetBlownAwayDirectionX() const {
+	if (blownAwayVelocity_.x > 0.0f) {
+		return 1.0f;
+	}
+
+	if (blownAwayVelocity_.x < 0.0f) {
+		return -1.0f;
+	}
+
+	return blownAwayDirection_;
 }
 
 void Enemy::SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }

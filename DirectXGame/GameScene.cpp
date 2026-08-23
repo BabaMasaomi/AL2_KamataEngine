@@ -88,7 +88,7 @@ void GameScene::Initialize() {
 	// 敵のワールドトランスフォームの初期化
 	worldTransformEnemy_.Initialize();
 
-	for (int32_t i = 0; i < 1; i++) {
+	for (int32_t i = 0; i < 3; i++) {
 		// 敵の生成
 		Enemy* newEnemy = new Enemy();
 
@@ -96,7 +96,7 @@ void GameScene::Initialize() {
 		newEnemy->SetMapChipField(mapChipField_);
 
 		// 座標をマップチップ番号で指定
-		Vector3 enemyPos = mapChipField_->GetMapChipPositionByIndex(40 + i * 5, 18);
+		Vector3 enemyPos = mapChipField_->GetMapChipPositionByIndex(40 + i * 7, 18);
 
 		// 敵の初期化
 		newEnemy->Initialize(modelEnemy_, &camera_, enemyPos);
@@ -106,32 +106,6 @@ void GameScene::Initialize() {
 		// 敵にゲームシーンを渡す
 		newEnemy->SetGameScene(this);
 	}
-
-	// マップチップデータのセット
-	// enemies_->SetMapChipField(mapChipField_);		// マップチップと当たり判定を取る時に必要
-
-	///*--------------- 盾敵 ---------------*/
-	//// 敵の3Dモデルの生成
-	// modelShieldEnemy_ = Model::CreateFromOBJ("shieldEnemy", true);
-
-	//// 敵のワールドトランスフォームの初期化
-	// worldTransformShieldEnemy_.Initialize();
-
-	// for (int32_t i = 0; i < 3; i++) {
-	//	// 敵の生成
-	//	ShieldEnemy* newShieldEnemy = new ShieldEnemy();
-
-	//	// 座標をマップチップ番号で指定
-	//	Vector3 shieldEnemyPos = mapChipField_->GetMapChipPositionByIndex(40 + i * 5, 18);
-
-	//	// 敵の初期化
-	//	newShieldEnemy->Initialize(modelShieldEnemy_, &camera_, shieldEnemyPos);
-	//	// リストに追加
-	//	shieldEnemies_.push_back(newShieldEnemy);
-
-	//	// 敵にゲームシーンを渡す
-	//	newShieldEnemy->SetGameScene(this);
-	//}
 
 	/*--------------- 天球 ---------------*/
 	// 天球の3Dモデルの生成
@@ -207,11 +181,6 @@ void GameScene::Update() {
 			enemy->Update();
 		}
 
-		//// 盾敵の更新
-		// for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
-		//	shieldEnemy->Update();
-		// }
-
 		// カメラコントローラの更新
 		camaraController_->Update();
 
@@ -249,7 +218,10 @@ void GameScene::Update() {
 		}
 
 		// 総当たり当たり判定
+		// プレイヤーと敵
 		CheckAllCollisions();
+		// 敵同士
+		CheckEnemyCollisions();
 
 		fade_->Update();
 		break;
@@ -342,8 +314,10 @@ void GameScene::Update() {
 		}
 
 		// 総当たり当たり判定
+		// プレイヤーと敵
 		CheckAllCollisions();
-		// CheckAllCollisionsShield();
+		// 敵同士
+		CheckEnemyCollisions();
 
 		break;
 
@@ -558,37 +532,59 @@ void GameScene::CheckAllCollisions() {
 	}
 }
 
-///*-------------------- 総当たり当たり判定 --------------------*/
-// void GameScene::CheckAllCollisionsShield() {
-//	AABB aabb1, aabb2;
-//
-//	// 自キャラのAABB取得
-//	aabb1 = player_->GetAABB();
-//
-//	// 敵全員と当たり判定
-//	for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
-//		// コリジョン無効の敵はスキップ
-//		if (shieldEnemy->IsCollisionDisEnabled()) {
-//			continue;
-//		}
-//		// 敵のAABB取得
-//		aabb2 = shieldEnemy->GetAABB();
-//
-//		// 当たり判定
-//		if (CheckAABBCollision(aabb1, aabb2)) {
-//			// 衝突応答
-//			// 自キャラの衝突判定時の処理
-//			if (player_->CanReceiveDamage()) {
-//				player_->OnCollisionShieldEnemy(shieldEnemy);
-//			}
-//
-//			// 敵の衝突判定時の処理
-//			if (player_->CanAttackEnemy()) {
-//				shieldEnemy->OnCollisionPlayer(player_);
-//			}
-//		}
-//	}
-// }
+/*-------------------- 吹き飛び中の敵と他の敵との判定 --------------------*/
+void GameScene::CheckEnemyCollisions() {
+	for (Enemy* attacker : enemies_) {
+		// 吹き飛び中かつ、
+		// 現在の区間で攻撃可能な敵だけ
+		if (!attacker->CanHitOtherEnemy()) {
+			continue;
+		}
+
+		AABB attackerAABB = attacker->GetAABB();
+
+		for (Enemy* target : enemies_) {
+			// 自分自身は除外
+			if (attacker == target) {
+				continue;
+			}
+
+			// 行動可能な敵だけを対象にする
+			if (!target->CanReceiveBlownAwayHit()) {
+				continue;
+			}
+
+			AABB targetAABB = target->GetAABB();
+
+			if (!CheckAABBCollision(attackerAABB, targetAABB)) {
+				continue;
+			}
+
+			// 被弾処理
+			target->OnCollisionBlownAwayEnemy(attacker->GetBlownAwayDirectionX());
+
+			// この飛行区間の1ヒットを消費
+			attacker->ConsumeBlownAwayHit();
+
+			// 敵同士の中間にエフェクト
+			Vector3 attackerPos = attacker->GetWorldPos();
+			Vector3 targetPos = target->GetWorldPos();
+			Vector3 effectPos = {
+			    (attackerPos.x + targetPos.x) / 2.0f,
+
+			    (attackerPos.y + targetPos.y) / 2.0f,
+
+			    0.0f,
+			};
+
+			CreateHitEffect(effectPos, HitEffectType::kHit);
+
+			// 1区間に1体までなので、
+			// targetのループを終了
+			break;
+		}
+	}
+}
 
 /*-------------------- AABB同士の当たり判定 --------------------*/
 bool GameScene::CheckAABBCollision(const AABB& aabb1, const AABB& aabb2) {

@@ -145,8 +145,8 @@ public:
 
 	// 総当たり当たり判定
 	void CheckAllCollisions();
-	//// 盾持ちの当たり判定
-	//void CheckAllCollisionsShield();
+	// 吹き飛び中の敵と他の敵との判定
+	void CheckEnemyCollisions();
 
 	// AABB同士の当たり判定
 	bool CheckAABBCollision(const AABB& aabb1, const AABB& aabb2);
