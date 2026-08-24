@@ -113,8 +113,6 @@ public:
 	void OnCollisionBlownAwayEnemy(float attackDirection);
 
 	// ゲッター
-
-
 	bool GetIsDead() const { return isDead_; }
 
 	int32_t GetBounceCount() const { return bounceCount_; }
@@ -131,6 +129,9 @@ public:
 
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 
+	// 追跡対象を設定
+	void SetTarget(Player* target) { target_ = target; }
+
 private:
 	// HPダメージを受ける
 	// 撃破された場合はtrue
@@ -141,6 +142,9 @@ private:
 
 	// 通常状態での地形に沿った移動
 	void UpdateRootMapMovement();
+
+	// プレイヤーの位置から移動方向を決める
+	void UpdateChaseDirection();
 
 	// 横移動に地形判定を適用する
 	// 壁に衝突した場合はtrue
@@ -210,6 +214,14 @@ private:
 
 	// 敵の旋回時間
 	static constexpr float kTurnTime = 0.10f;
+
+	/*--------------- プレイヤー追跡 ---------------*/
+
+	// 追跡対象
+	Player* target_ = nullptr;
+
+	// プレイヤーとのX座標差がこの値以下なら停止
+	static constexpr float kChaseStopDistance = 0.15f;
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP

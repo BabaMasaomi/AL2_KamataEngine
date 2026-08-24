@@ -2,6 +2,7 @@
 #include "Enemy.h"
 #include "GameScene.h"
 #include "MapChipField.h"
+#include "Player.h"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -227,9 +228,9 @@ void Enemy::UpdateRootMapMovement() {
 
 	bool hitWall = MoveHorizontalWithMap(movementX);
 
-	// 通常歩行で壁に当たったら反転
+	// 壁に当たったら、その場で横移動を停止
 	if (hitWall) {
-		velocity_.x *= -1.0f;
+		velocity_.x = 0.0f;
 	}
 
 	/*========== 縦方向の移動と床判定 ==========*/
@@ -281,6 +282,35 @@ void Enemy::UpdateRootMapMovement() {
 	}
 
 	worldTransform_.translation_.y = nextY;
+}
+
+// プレイヤーの位置から移動方向を決める
+void Enemy::UpdateChaseDirection() {
+	// 追跡対象がなければ現在の移動方向を維持
+	if (!target_) {
+		return;
+	}
+
+	Vector3 playerPos = target_->GetWorldPos();
+
+	float differenceX = playerPos.x - worldTransform_.translation_.x;
+
+	// プレイヤーが右側にいる
+	if (differenceX > kChaseStopDistance) {
+
+		velocity_.x = kMoveSpeed;
+		return;
+	}
+
+	// プレイヤーが左側にいる
+	if (differenceX < -kChaseStopDistance) {
+
+		velocity_.x = -kMoveSpeed;
+		return;
+	}
+
+	// X座標がほぼ一致している場合は停止
+	velocity_.x = 0.0f;
 }
 
 // 横移動に地形判定を適用する
@@ -396,20 +426,32 @@ void Enemy::BehaviorRootInitialize() {
 
 // 通常行動更新
 void Enemy::BehaviorRootUpdate() {
+	// ノックバック中は追跡方向を更新しない
+	if (!isHitKnockBack_) {
+		// プレイヤーの位置から移動方向を決定
+		UpdateChaseDirection();
+	}
+
+	// 決定した移動方向へ向きを変える
+	UpdateFacingDirection();
+
 	// 重力と地形判定を含む通常移動
 	UpdateRootMapMovement();
 
-	// 横移動方向に応じて向きを変更
-	UpdateFacingDirection();
+	// 歩行中だけアニメーションさせる
+	if (!isHitKnockBack_ && std::abs(velocity_.x) > 0.001f) {
 
-	// 歩行アニメーション
-	walkTimer_ += 1.0f / 60.0f;
+		walkTimer_ += 1.0f / 60.0f;
 
-	float param = std::sin((walkTimer_ / kWalkMotionTime) * 2.0f * std::numbers::pi_v<float>);
+		float param = std::sin((walkTimer_ / kWalkMotionTime) * 2.0f * std::numbers::pi_v<float>);
+		float degree = kWalkMotionAngleStart + kWalkMotionAngleEnd * ((param + 1.0f) / 2.0f);
 
-	float degree = kWalkMotionAngleStart + kWalkMotionAngleEnd * ((param + 1.0f) / 2.0f);
+		worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
 
-	worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
+	} else {
+		// 停止中は傾きを中央へ戻す
+		worldTransform_.rotation_.x = 0.0f;
+	}
 }
 
 // 死亡アクション初期化

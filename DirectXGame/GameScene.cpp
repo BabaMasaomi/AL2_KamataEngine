@@ -100,11 +100,15 @@ void GameScene::Initialize() {
 
 		// 敵の初期化
 		newEnemy->Initialize(modelEnemy_, &camera_, enemyPos);
-		// リストに追加
-		enemies_.push_back(newEnemy);
+
+		// 追跡対象としてプレイヤーを設定
+		newEnemy->SetTarget(player_);
 
 		// 敵にゲームシーンを渡す
 		newEnemy->SetGameScene(this);
+
+		// リストに追加
+		enemies_.push_back(newEnemy);
 	}
 
 	/*--------------- 天球 ---------------*/
