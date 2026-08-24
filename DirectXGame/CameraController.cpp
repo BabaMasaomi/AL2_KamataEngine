@@ -45,9 +45,9 @@ void CameraController::UpdateFollow() {
 	const Vector3& targetVelocity = target_->GetVeloctiy();
 
 	// 追従対象とオフセットからカメラの座標を計算
-	targetCoordinate.x = targetWorldTransform.translation_.x + targetOffset_.x + targetVelocity.x * kVelocityBias;
-	targetCoordinate.y = targetWorldTransform.translation_.y + targetOffset_.y + targetVelocity.y * kVelocityBias;
-	targetCoordinate.z = targetWorldTransform.translation_.z + targetOffset_.z + targetVelocity.z * kVelocityBias;
+	targetCoordinate.x = targetWorldTransform.translation_.x + targetOffset_.x + targetVelocity.x * kVelocityBiasX;
+	targetCoordinate.y = targetWorldTransform.translation_.y + targetOffset_.y + targetVelocity.y * kVelocityBiasY;
+	targetCoordinate.z = targetWorldTransform.translation_.z + targetOffset_.z;
 
 	// 座標補間でゆったり追従
 	camera_->translation_.x = std::lerp(camera_->translation_.x, targetCoordinate.x, kInterpolationRate);

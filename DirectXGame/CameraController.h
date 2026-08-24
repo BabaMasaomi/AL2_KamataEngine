@@ -62,10 +62,14 @@ private:
 	KamataEngine::Vector3 targetCoordinate = {};
 
 	// 座標補間割合
-	static inline const float kInterpolationRate = 0.2f;
+	static inline const float kInterpolationRate = 0.08f;
 
 	// 速度掛け率
-	static inline const float kVelocityBias = 7.5f;
+	// 横方向の速度先読み倍率
+	static constexpr float kVelocityBiasX = 2.0f;
+
+	// 縦方向の速度先読み倍率
+	static constexpr float kVelocityBiasY = 0.5f;
 
 	// 追従対象の各方向へのカメラ移動範囲(-left,+right,-bottom,+topの順)
 	static inline const Rect cameraMovementMargin = {-100.0f, 100.0f, -100.0f, 100.0f};

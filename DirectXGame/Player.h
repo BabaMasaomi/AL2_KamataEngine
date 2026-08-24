@@ -193,6 +193,9 @@ public:
 
 	bool IsChargedAttack() const { return attackType_ == AttackType::kCharged; }
 
+	int32_t GetHp() const { return hp_; }
+	int32_t GetMaxHp() const { return kMaxHp; }
+
 	// セッター
 	// 自機のワールド座標
 	void SetWorldPos(const KamataEngine::Vector3& pos) { worldTransform_.translation_ = pos; }
@@ -219,17 +222,24 @@ private:
 	// 以下、移動などに使う変数をまとめる
 	KamataEngine::Vector3 velocity_ = {};
 
-	// 左右移動の加速度
-	static inline const float kAcceleration = 0.025f;
-
 	// 移動減衰の基本の値
 	static inline const float kAttenuation = 0.1f;
+	//
+
+	// 地上で入力中に速度を変化させる量
+	static constexpr float kGroundAcceleration = 0.09f;
+
+	// 地上で入力を離したときの減速量
+	static constexpr float kGroundDeceleration = 0.04f;
+
+	// 空中での左右制御量
+	static constexpr float kAirAcceleration = 0.055f;
+
+	// 最大左右移動速度
+	static constexpr float kLimitRunSpeed = 0.50f;
 
 	// 着地時の減衰の基本の値
 	static inline const float kAttenuationLanding = 0.1f;
-
-	// 制限速度
-	static inline const float kLimitRunSpeed = 0.75f;
 
 	// 左右の向き
 	LRDirection lrDirection_ = LRDirection::kRight;
@@ -238,7 +248,7 @@ private:
 	bool onGround_ = true;
 
 	// 重力加速度
-	static inline const float kGravityAcceleration = 0.09f;
+	static inline const float kGravityAcceleration = 0.07f;
 
 	// 最大落下速度
 	static inline const float kLimitFallSpeed_ = 0.75f;
@@ -248,9 +258,6 @@ private:
 
 	// 壁にぶつかった時の減速率
 	static inline const float kAttenuationWall = 0.75f;
-
-	// 死亡フラグ
-	bool isDead_ = false;
 
 	// キャラクターの当たり判定サイズ
 	static inline const float kWidth = 1.6f;
@@ -267,6 +274,25 @@ private:
 
 	// 旋回時間(秒)
 	static inline const float kTimeTurn = 0.3f;
+
+	// 空中追加ジャンプが残っているか
+	bool canDoubleJump_ = true;
+
+	// 空中追加ジャンプの初速
+	static constexpr float kDoubleJumpAcceleration = 1.00f;
+
+	/*--------------- HP管理 ---------------*/
+	// 最大HP
+	static constexpr int32_t kMaxHp = 3;
+
+	// 現在HP
+	int32_t hp_ = kMaxHp;
+
+	// 敵との接触ダメージ
+	static constexpr int32_t kEnemyContactDamage = 1;
+
+	// 死亡フラグ
+	bool isDead_ = false;
 
 	/*--------------- 溜め入力管理 ---------------*/
 	// 現在の攻撃種類
@@ -292,13 +318,13 @@ private:
 	float attackTimer_ = 0.0f;
 
 	// 振りかぶり時間
-	static constexpr float kAttackStartupTime = 0.08f;
+	static constexpr float kAttackStartupTime = 0.05f;
 
 	// 攻撃判定が出る時間
-	static constexpr float kAttackActiveTime = 0.12f;
+	static constexpr float kAttackActiveTime = 0.09f;
 
 	// 後隙
-	static constexpr float kAttackRecoveryTime = 0.15f;
+	static constexpr float kAttackRecoveryTime = 0.10f;
 
 	// 踏み込み速度
 	static constexpr float kAttackStepSpeed = 0.22f;
@@ -330,6 +356,13 @@ private:
 	KamataEngine::Model* modelBat_ = nullptr;
 	KamataEngine::WorldTransform worldTransformBat_;
 	bool isBatVisible_ = false;
+
+	/*--------------- 空中攻撃制御 ---------------*/
+	// 空中攻撃中に縦速度へ掛ける減衰率
+	static constexpr float kAirAttackVerticalDamping = 0.72f;
+
+	// 縦速度を完全停止させる基準
+	static constexpr float kAirAttackStopSpeed = 0.02f;
 
 	/*--------------- プレイヤー被ノックバック ---------------*/
 	// ノックバック方向

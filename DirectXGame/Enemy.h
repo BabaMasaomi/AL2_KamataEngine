@@ -113,6 +113,8 @@ public:
 	void OnCollisionBlownAwayEnemy(float attackDirection);
 
 	// ゲッター
+
+
 	bool GetIsDead() const { return isDead_; }
 
 	int32_t GetBounceCount() const { return bounceCount_; }

@@ -1,5 +1,6 @@
 ﻿#define NOMINMAX
 #include "Player.h"
+#include "Enemy.h"
 #include "MapChipField.h"
 #include <algorithm>
 #include <cassert>
@@ -39,6 +40,11 @@ void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const 
 	// 3Dモデルの生成
 	model_ = model;
 	modelAttack_ = modelAttack;
+
+	canDoubleJump_ = true;
+
+	hp_ = kMaxHp;
+	isDead_ = false;
 }
 
 /// <summary>
@@ -152,9 +158,6 @@ void Player::Update() {
 
 // 通常行動初期化
 void Player::BehaviorRootInitialize() {
-	// 速度を初期化
-	velocity_.x = 0.0f;
-	velocity_.y = 0.0f;
 	// 回転角を初期化
 	turnTimer_ = 0.0f;
 	turnFirstRotationY_ = worldTransform_.rotation_.y;
@@ -179,76 +182,75 @@ void Player::BehaviorRootUpdate() {
 		}
 	}
 
-	/*========== ①移動入力 ==========*/
-	// 接地している時
-	if (onGround_) {
-		// 移動入力
-		if (Input::GetInstance()->PushKey(DIK_RIGHT) || Input::GetInstance()->PushKey(DIK_LEFT)) {
-			// 加速
-			Vector3 acceleration = {};
+	/*========== 左右移動 ==========*/
+	float inputDirection = 0.0f;
 
-			// 左右移動
-			if (Input::GetInstance()->PushKey(DIK_RIGHT)) {
-				// 速度と逆方向の時は急ブレーキ
-				if (velocity_.x < 0.0f) {
-					velocity_.x *= (1.0f - kAttenuation);
-				}
+	if (Input::GetInstance()->PushKey(DIK_RIGHT)) {
+		inputDirection += 1.0f;
+	}
 
-				// 右移動
-				acceleration.x += kAcceleration;
+	if (Input::GetInstance()->PushKey(DIK_LEFT)) {
+		inputDirection -= 1.0f;
+	}
 
-				// 体を右に
-				if (lrDirection_ != LRDirection::kRight) {
-					lrDirection_ = LRDirection::kRight;
-					// 旋回開始時の角度を記録
-					turnFirstRotationY_ = worldTransform_.rotation_.y;
+	if (inputDirection != 0.0f) {
+		float targetSpeed = inputDirection * kLimitRunSpeed;
 
-					// 旋回タイマーをリセット
-					turnTimer_ = kTimeTurn;
-				}
+		float acceleration = onGround_ ? kGroundAcceleration : kAirAcceleration;
 
-			} else if (Input::GetInstance()->PushKey(DIK_LEFT)) {
-				// 速度と逆方向の時は急ブレーキ
-				if (velocity_.x > 0.0f) {
-					velocity_.x *= (1.0f - kAttenuation);
-				}
+		// 現在速度を目標速度へ近づける
+		float difference = targetSpeed - velocity_.x;
 
-				// 左移動
-				acceleration.x -= kAcceleration;
+		velocity_.x += std::clamp(difference, -acceleration, acceleration);
 
-				// 体を左に
-				if (lrDirection_ != LRDirection::kLeft) {
-					lrDirection_ = LRDirection::kLeft;
-					// 旋回開始時の角度を記録
-					turnFirstRotationY_ = worldTransform_.rotation_.y;
+		// 向きを更新
+		LRDirection newDirection = inputDirection > 0.0f ? LRDirection::kRight : LRDirection::kLeft;
 
-					// 旋回タイマーをリセット
-					turnTimer_ = kTimeTurn;
-				}
-			}
+		if (lrDirection_ != newDirection) {
+			lrDirection_ = newDirection;
 
-			// 加速/減速
-			velocity_.x += acceleration.x;
+			turnFirstRotationY_ = worldTransform_.rotation_.y;
 
-			// 最大速度制限
-			velocity_.x = std::clamp(velocity_.x, -kLimitRunSpeed, kLimitRunSpeed);
-
-		} else {
-			// 入力していない時は減速
-			velocity_.x *= (1.0f - kAttenuation);
+			turnTimer_ = kTimeTurn;
 		}
 
-		// ジャンプ入力
-		if (Input::GetInstance()->TriggerKey(DIK_UP)) {
-			// ジャンプ初速
-			velocity_.y += kJumpAcceleration_;
-		}
+	} else if (onGround_) {
+		// 入力がないときは素早く停止
+		float difference = -velocity_.x;
 
-	} else { // 空中
-		// 落下速度
+		velocity_.x += std::clamp(difference, -kGroundDeceleration, kGroundDeceleration);
+	}
+
+	// 微小な速度を完全停止
+	if (onGround_ && std::abs(velocity_.x) < 0.001f) {
+		velocity_.x = 0.0f;
+	}
+
+	/*========== ジャンプ ==========*/
+	// このフレームにジャンプしたか
+	bool jumpedThisFrame = false;
+
+	if (Input::GetInstance()->TriggerKey(DIK_UP)) {
+		if (onGround_) {
+			// 通常ジャンプ
+			velocity_.y = kJumpAcceleration_;
+
+			canDoubleJump_ = true;
+			jumpedThisFrame = true;
+
+		} else if (canDoubleJump_) {
+			// 二段ジャンプ
+			velocity_.y = kDoubleJumpAcceleration;
+
+			canDoubleJump_ = false;
+			jumpedThisFrame = true;
+		}
+	}
+
+	// 空中かつ、ジャンプした直後でなければ重力を適用
+	if (!onGround_ && !jumpedThisFrame) {
 		velocity_.y -= kGravityAcceleration;
 
-		// 落下速度制限
 		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
 	}
 
@@ -305,6 +307,15 @@ void Player::BehaviorAttackUpdate() {
 	const float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
 
 	attackTimer_ += deltaTime;
+
+	// 空中攻撃中は上昇・落下を滑らかに停止
+	if (!onGround_) {
+		velocity_.y *= kAirAttackVerticalDamping;
+
+		if (std::abs(velocity_.y) < kAirAttackStopSpeed) {
+			velocity_.y = 0.0f;
+		}
+	}
 
 	switch (attackPhase_) {
 	case AttackPhase::kCharging: {
@@ -812,10 +823,9 @@ void Player::SwitchGroundingState(const CollisionMapInfo& info) {
 		if (info.isLanding) {
 			// 着地状態に切り替える
 			onGround_ = true;
-			canAirAttack_ = true;
 
-			// 着地時にX方向速度を減衰させる(無くていいよ)
-			// velocity_.x *= (1.0f - kAttenuationLanding);
+			canAirAttack_ = true;
+			canDoubleJump_ = true;
 
 			// Y方向速度を0にする
 			velocity_.y = 0.0f;
@@ -874,14 +884,28 @@ AABB Player::GetAttackAABB() const {
 
 // 敵との当たり判定
 void Player::OnCollisionEnemy(Enemy* enemy) {
-	// 攻撃中なら敵に触れても死なない
+	// 攻撃判定が出ている間は接触ダメージを受けない
 	if (IsAttack()) {
 		return;
 	}
-	// 敵と接触したら死亡
-	isDead_ = true;
 
-	(void)enemy;
+	// HPを減らす
+	hp_ -= kEnemyContactDamage;
+	hp_ = std::max(hp_, 0);
+
+	// HPが0なら死亡
+	if (hp_ <= 0) {
+		isDead_ = true;
+		EndAttack();
+		return;
+	}
+
+	// 敵との位置関係からノックバック方向を決める
+	float differenceX = worldTransform_.translation_.x - enemy->GetWorldPos().x;
+
+	float direction = differenceX >= 0.0f ? 1.0f : -1.0f;
+
+	RequestKnockBack(direction);
 }
 
 // 盾敵との当たり判定
@@ -909,10 +933,7 @@ bool Player::CanAttackEnemy() const {
 }
 
 // ダメージを受けるか
-bool Player::CanReceiveDamage() const {
-	// 食らいモーション中じゃない
-	return behaivior_ != Behavior::kKnockBack;
-}
+bool Player::CanReceiveDamage() const { return !isDead_ && behaivior_ != Behavior::kKnockBack; }
 
 // ノックバック要求を受け取る
 void Player::RequestKnockBack(float direction) {
