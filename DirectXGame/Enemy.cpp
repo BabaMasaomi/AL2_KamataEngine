@@ -49,6 +49,11 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 	worldTransform_.translation_ = pos;
 	worldTransform_.rotation_.y = -std::numbers::pi_v<float> / 2.0f;
 
+	// 旋回制御用の変数初期化
+	lrDirection_ = EnemyLRDirection::kLeft;
+	turnStartRotationY_ = worldTransform_.rotation_.y;
+	turnTimer_ = 0.0f;
+
 	// 3Dモデルの生成
 	modelEnemy_ = model;
 
@@ -132,6 +137,60 @@ void Enemy::Update() {
 
 	// 行列を定数バッファに転送
 	transform_.worldMatrixUpdate(worldTransform_);
+}
+
+// 横移動方向に応じた向きの更新
+void Enemy::UpdateFacingDirection() {
+	/*========== 移動方向の変化を確認 ==========*/
+
+	EnemyLRDirection newDirection = lrDirection_;
+
+	if (velocity_.x > 0.0f) {
+		newDirection = EnemyLRDirection::kRight;
+
+	} else if (velocity_.x < 0.0f) {
+		newDirection = EnemyLRDirection::kLeft;
+	}
+
+	// 向きが変化した瞬間に旋回開始
+	if (newDirection != lrDirection_) {
+		lrDirection_ = newDirection;
+
+		turnStartRotationY_ = worldTransform_.rotation_.y;
+
+		turnTimer_ = kTurnTime;
+	}
+
+	/*========== 旋回補間 ==========*/
+	if (turnTimer_ <= 0.0f) {
+		return;
+	}
+
+	const float deltaTime = 1.0f / 60.0f;
+
+	turnTimer_ -= deltaTime;
+	turnTimer_ = std::max(turnTimer_, 0.0f);
+
+	// 線形補間
+	float t = 1.0f - turnTimer_ / kTurnTime;
+	t = std::clamp(t, 0.0f, 1.0f);
+
+	// 滑らかに開始・終了する補間
+	float easeT = t * t * (3.0f - 2.0f * t);
+
+	float destinationRotationY = 0.0f;
+
+	switch (lrDirection_) {
+	case EnemyLRDirection::kRight:
+		destinationRotationY = std::numbers::pi_v<float> / 2.0f;
+		break;
+
+	case EnemyLRDirection::kLeft:
+		destinationRotationY = -std::numbers::pi_v<float> / 2.0f;
+		break;
+	}
+
+	worldTransform_.rotation_.y = turnStartRotationY_ + (destinationRotationY - turnStartRotationY_) * easeT;
 }
 
 // 通常状態での地形に沿った移動
@@ -317,17 +376,31 @@ void Enemy::BehaviorRootInitialize() {
 	worldTransform_.rotation_.x = 0.0f;
 	worldTransform_.rotation_.z = 0.0f;
 
-	velocity_.x = -kMoveSpeed;
+	// スタン前の向きに合わせて移動を再開
+	if (lrDirection_ == EnemyLRDirection::kRight) {
+
+		velocity_.x = kMoveSpeed;
+
+	} else {
+		velocity_.x = -kMoveSpeed;
+	}
+
 	velocity_.y = 0.0f;
 	velocity_.z = 0.0f;
 
 	isOnGround_ = false;
+
+	// 復帰時に不要な旋回を発生させない
+	turnTimer_ = 0.0f;
 }
 
 // 通常行動更新
 void Enemy::BehaviorRootUpdate() {
 	// 重力と地形判定を含む通常移動
 	UpdateRootMapMovement();
+
+	// 横移動方向に応じて向きを変更
+	UpdateFacingDirection();
 
 	// 歩行アニメーション
 	walkTimer_ += 1.0f / 60.0f;

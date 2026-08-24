@@ -222,6 +222,7 @@ private:
 	// 以下、移動などに使う変数をまとめる
 	KamataEngine::Vector3 velocity_ = {};
 
+	//
 	// 移動減衰の基本の値
 	static inline const float kAttenuation = 0.1f;
 	//
@@ -254,7 +255,7 @@ private:
 	static inline const float kLimitFallSpeed_ = 0.75f;
 
 	// ジャンプ初速
-	static inline const float kJumpAcceleration_ = 1.0f;
+	static inline const float kJumpAcceleration_ = 1.1f;
 
 	// 壁にぶつかった時の減速率
 	static inline const float kAttenuationWall = 0.75f;

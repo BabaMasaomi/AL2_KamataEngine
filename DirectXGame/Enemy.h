@@ -9,10 +9,10 @@ class GameScene;
 class Player;
 
 // 左右の向き
-// enum class LRDirection {
-//	kRight,
-//	kLeft,
-//};
+enum class EnemyLRDirection {
+	kRight,
+	kLeft,
+};
 
 // 振る舞い
 enum class BehaviorEnemy {
@@ -136,6 +136,9 @@ private:
 	// 撃破された場合はtrue
 	bool ApplyHpDamage(int32_t damage);
 
+	// 横移動方向に応じた向きの更新
+	void UpdateFacingDirection();
+
 	// 通常状態での地形に沿った移動
 	void UpdateRootMapMovement();
 
@@ -194,6 +197,19 @@ private:
 
 	// 地形とのめり込み防止用余白
 	static constexpr float kRootMapMargin = 0.05f;
+
+	/*--------------- 左右方向・旋回管理 ---------------*/
+	// 現在向いている方向
+	EnemyLRDirection lrDirection_ = EnemyLRDirection::kLeft;
+
+	// 旋回開始時のY回転角
+	float turnStartRotationY_ = 0.0f;
+
+	// 旋回の残り時間
+	float turnTimer_ = 0.0f;
+
+	// 敵の旋回時間
+	static constexpr float kTurnTime = 0.10f;
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP
