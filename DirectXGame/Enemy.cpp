@@ -57,6 +57,17 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 
 	// アニメーションタイマーの初期化
 	walkTimer_ = 0.0f;
+
+	// HPとスタン値の初期化
+	hp_ = kMaxHp;
+	stunHitCount_ = 0;
+
+	isDead_ = false;
+	isCollisionDisenabled_ = false;
+	behavior_ = BehaviorEnemy::kRoot;
+	behaviorRequest_ = BehaviorEnemy::kUnknown;
+
+	isOnGround_ = false;
 }
 
 /// <summary>
@@ -123,6 +134,182 @@ void Enemy::Update() {
 	transform_.worldMatrixUpdate(worldTransform_);
 }
 
+// 通常状態での地形に沿った移動
+void Enemy::UpdateRootMapMovement() {
+	// マップが設定されていない場合
+	if (!mapChipField_) {
+		if (!isHitKnockBack_) {
+			worldTransform_.translation_.x += velocity_.x;
+		}
+
+		velocity_.y -= kGravityAcceleration;
+		velocity_.y = std::max(velocity_.y, -kMaxFallSpeed);
+
+		worldTransform_.translation_.y += velocity_.y;
+		return;
+	}
+
+	const float halfWidth = kWidth / 2.0f;
+	const float halfHeight = kHeight / 2.0f;
+
+	/*========== 重力 ==========*/
+
+	velocity_.y -= kGravityAcceleration;
+	velocity_.y = std::max(velocity_.y, -kMaxFallSpeed);
+
+	/*========== 横方向の移動と壁判定 ==========*/
+
+	float movementX = 0.0f;
+
+	// ノックバック中は通常歩行を止める
+	if (!isHitKnockBack_) {
+		movementX = velocity_.x;
+	}
+
+	bool hitWall = MoveHorizontalWithMap(movementX);
+
+	// 通常歩行で壁に当たったら反転
+	if (hitWall) {
+		velocity_.x *= -1.0f;
+	}
+
+	/*========== 縦方向の移動と床判定 ==========*/
+
+	float nextY = worldTransform_.translation_.y + velocity_.y;
+
+	isOnGround_ = false;
+
+	// 現在は落下方向だけを判定
+	if (velocity_.y <= 0.0f) {
+		Vector3 checkPositions[] = {
+		    {
+             worldTransform_.translation_.x - halfWidth + kRootMapMargin,
+             nextY - halfHeight,
+             worldTransform_.translation_.z,
+		     },
+		    {
+             worldTransform_.translation_.x + halfWidth - kRootMapMargin,
+             nextY - halfHeight,
+             worldTransform_.translation_.z,
+		     },
+		};
+
+		bool hitFloor = false;
+		float resolvedY = nextY;
+
+		for (const Vector3& position : checkPositions) {
+			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+
+			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+				continue;
+			}
+
+			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+
+			// 敵の下端を床の上面へ合わせる
+			float candidateY = rect.top + halfHeight + kRootMapMargin;
+
+			resolvedY = std::max(resolvedY, candidateY);
+
+			hitFloor = true;
+		}
+
+		if (hitFloor) {
+			nextY = resolvedY;
+			velocity_.y = 0.0f;
+			isOnGround_ = true;
+		}
+	}
+
+	worldTransform_.translation_.y = nextY;
+}
+
+// 横移動に地形判定を適用する
+// 壁に衝突した場合はtrue
+bool Enemy::MoveHorizontalWithMap(float movementX) {
+	if (movementX == 0.0f) {
+		return false;
+	}
+
+	// マップがない場合はそのまま移動
+	if (!mapChipField_) {
+		worldTransform_.translation_.x += movementX;
+		return false;
+	}
+
+	const float halfWidth = kWidth / 2.0f;
+	const float halfHeight = kHeight / 2.0f;
+
+	float nextX = worldTransform_.translation_.x + movementX;
+
+	bool hitWall = false;
+
+	if (movementX > 0.0f) {
+		// 右側の上下2点
+		Vector3 checkPositions[] = {
+		    {
+             nextX + halfWidth,
+             worldTransform_.translation_.y + halfHeight - kRootMapMargin,
+             worldTransform_.translation_.z,
+		     },
+		    {
+             nextX + halfWidth,
+             worldTransform_.translation_.y - halfHeight + kRootMapMargin,
+             worldTransform_.translation_.z,
+		     },
+		};
+
+		for (const Vector3& position : checkPositions) {
+			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+
+			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+				continue;
+			}
+
+			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+
+			// 右端を壁の左端へ合わせる
+			nextX = std::min(nextX, rect.left - halfWidth - kRootMapMargin);
+
+			hitWall = true;
+		}
+
+	} else {
+		// 左側の上下2点
+		Vector3 checkPositions[] = {
+		    {
+             nextX - halfWidth,
+             worldTransform_.translation_.y + halfHeight - kRootMapMargin,
+             worldTransform_.translation_.z,
+		     },
+		    {
+             nextX - halfWidth,
+             worldTransform_.translation_.y - halfHeight + kRootMapMargin,
+             worldTransform_.translation_.z,
+		     },
+		};
+
+		for (const Vector3& position : checkPositions) {
+			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+
+			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+				continue;
+			}
+
+			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+
+			// 左端を壁の右端へ合わせる
+			nextX = std::max(nextX, rect.right + halfWidth + kRootMapMargin);
+
+			hitWall = true;
+		}
+	}
+
+	worldTransform_.translation_.x = nextX;
+
+	return hitWall;
+}
+
 // 通常行動初期化
 void Enemy::BehaviorRootInitialize() {
 	isCollisionDisenabled_ = false;
@@ -130,15 +317,17 @@ void Enemy::BehaviorRootInitialize() {
 	worldTransform_.rotation_.x = 0.0f;
 	worldTransform_.rotation_.z = 0.0f;
 
-	velocity_ = {-kMoveSpeed, 0.0f, 0.0f};
+	velocity_.x = -kMoveSpeed;
+	velocity_.y = 0.0f;
+	velocity_.z = 0.0f;
+
+	isOnGround_ = false;
 }
 
 // 通常行動更新
 void Enemy::BehaviorRootUpdate() {
-	// ノックバック中は通常移動しない
-	if (!isHitKnockBack_) {
-		//worldTransform_.translation_.x += velocity_.x;
-	}
+	// 重力と地形判定を含む通常移動
+	UpdateRootMapMovement();
 
 	// 歩行アニメーション
 	walkTimer_ += 1.0f / 60.0f;
@@ -153,27 +342,73 @@ void Enemy::BehaviorRootUpdate() {
 // 死亡アクション初期化
 void Enemy::BehaviorDeathInitialize() {
 	deathTimer_ = 0.0f;
+
 	velocity_ = {};
+	blownAwayVelocity_ = {};
+
+	isHitKnockBack_ = false;
+	isBlownAwayStopped_ = true;
+	canHitEnemyInCurrentBounce_ = false;
+
+	// 死亡開始時の大きさを保存
+	deathStartScale_ = worldTransform_.scale_;
+
+	hasCreatedDeathBurstEffect_ = false;
+
+	// 死亡演出中はすべての判定を無効化
 	isCollisionDisenabled_ = true;
 }
 
 // 死亡アクション更新
 void Enemy::BehaviorDeathUpdate() {
-	deathTimer_ += 1.0f / 60.0f;
+	const float deltaTime = 1.0f / 60.0f;
 
-	float t = std::clamp(deathTimer_ / kDeathTime, 0.0f, 1.0f);
+	deathTimer_ += deltaTime;
 
-	// 敵を回転させる
-	worldTransform_.rotation_.x = 3.f;
-	worldTransform_.rotation_.y += 1.0f;
+	/*========== 膨張 ==========*/
 
-	// 敵のサイズを縮小
-	worldTransform_.scale_.x = EaseOut(2.0f, 0.0f, t);
-	worldTransform_.scale_.y = EaseOut(2.0f, 0.0f, t);
-	worldTransform_.scale_.z = EaseOut(2.0f, 0.0f, t);
+	if (deathTimer_ <= kDeathExpandTime) {
+		float t = std::clamp(deathTimer_ / kDeathExpandTime, 0.0f, 1.0f);
 
-	// 死亡を確定
-	if (deathTimer_ >= kDeathTime) {
+		float scaleRate = EaseOut(1.0f, kDeathExpandScaleRate, t);
+
+		worldTransform_.scale_ = {
+		    deathStartScale_.x * scaleRate,
+		    deathStartScale_.y * scaleRate,
+		    deathStartScale_.z * scaleRate,
+		};
+
+		return;
+	}
+
+	/*========== 破裂開始時のエフェクト ==========*/
+
+	if (!hasCreatedDeathBurstEffect_) {
+		hasCreatedDeathBurstEffect_ = true;
+
+		if (gameScene_) {
+			gameScene_->CreateHitEffect(GetWorldPos(), HitEffectType::kHit);
+		}
+	}
+
+	/*========== 急収縮 ==========*/
+	float shrinkTimer = deathTimer_ - kDeathExpandTime;
+
+	float t = std::clamp(shrinkTimer / kDeathShrinkTime, 0.0f, 1.0f);
+
+	float expandedRate = kDeathExpandScaleRate;
+
+	// 膨らんだ状態から一気に0へ
+	float scaleRate = EaseIn(expandedRate, 0.0f, t);
+
+	worldTransform_.scale_ = {
+	    deathStartScale_.x * scaleRate,
+	    deathStartScale_.y * scaleRate,
+	    deathStartScale_.z * scaleRate,
+	};
+
+	// 消滅
+	if (t >= 1.0f) {
 		isDead_ = true;
 	}
 }
@@ -261,10 +496,6 @@ void Enemy::BehaviorBlownAwayUpdate() {
 
 	blownAwayTimer_ += deltaTime;
 
-	// 新しい飛行区間に入ったので、
-	// 再び敵1体へ命中可能
-	canHitEnemyInCurrentBounce_ = true;
-
 	// 反射が弱くなって停止した場合は、
 	// デバッグ中なのでその場に残す
 	if (isBlownAwayStopped_) {
@@ -285,9 +516,12 @@ void Enemy::BehaviorBlownAwayUpdate() {
 			float speed = std::sqrt(blownAwayVelocity_.x * blownAwayVelocity_.x + blownAwayVelocity_.y * blownAwayVelocity_.y);
 
 			if (speed <= kBlownAwayStopSpeed) {
-
 				blownAwayVelocity_ = {};
 				isBlownAwayStopped_ = true;
+				canHitEnemyInCurrentBounce_ = false;
+
+				// 破裂死亡演出へ移行
+				behaviorRequest_ = BehaviorEnemy::kDeath;
 			}
 		}
 
@@ -516,6 +750,10 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	if (bouncedThisFrame) {
 		++bounceCount_;
 
+		// 新しい飛行区間に入ったので、
+		// 再び敵1体へ命中可能
+		canHitEnemyInCurrentBounce_ = true;
+
 		// 通常反射を行った直後の速度
 		float reflectedX = blownAwayVelocity_.x;
 
@@ -578,6 +816,9 @@ void Enemy::BehaviorBlownAwayUpdate() {
 
 			blownAwayVelocity_ = {};
 			isBlownAwayStopped_ = true;
+
+			// 破裂死亡演出へ移行
+			behaviorRequest_ = BehaviorEnemy::kDeath;
 		}
 
 		// 停止後は敵へダメージを与えない
@@ -613,9 +854,13 @@ void Enemy::UpdateHitKnockBack() {
 	// 最初は速く、徐々に減速
 	float speed = kHitKnockBackSpeed * (1.0f - t);
 
-	worldTransform_.translation_.x += hitKnockBackDirection_ * speed;
+	float movementX = hitKnockBackDirection_ * speed;
 
-	if (t >= 1.0f) {
+	// ノックバックにも壁判定を適用
+	bool hitWall = MoveHorizontalWithMap(movementX);
+
+	// 時間終了、または壁に当たったら終了
+	if (t >= 1.0f || hitWall) {
 		isHitKnockBack_ = false;
 		hitKnockBackTimer_ = 0.0f;
 	}
@@ -656,7 +901,7 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 
 	AttackType attackType = player->GetAttackType();
 
-	// 通常攻撃は通常状態だけ
+	// 通常攻撃は通常状態だけ受け付ける
 	if (attackType == AttackType::kNormal && behavior_ != BehaviorEnemy::kRoot) {
 		return false;
 	}
@@ -668,6 +913,7 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 
 	uint32_t attackSerial = player->GetAttackSerial();
 
+	// 同じ攻撃による複数ヒットを防止
 	if (lastReceivedAttackSerial_ == attackSerial) {
 		return false;
 	}
@@ -678,23 +924,27 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 
 	float hitDirection = differenceX >= 0.0f ? 1.0f : -1.0f;
 
-	// スタン中への溜め攻撃
+	// エフェクト位置
+	Vector3 effectPos = {
+	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
+
+	    (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
+
+	    0.0f,
+	};
+
+	/*========== スタン中への溜め攻撃 ==========*/
+
 	if (behavior_ == BehaviorEnemy::kStunned && attackType == AttackType::kCharged) {
 
+		// スタン中への溜め攻撃はHPを減らさず、
+		// 敵を吹き飛ばして攻撃弾にする
 		blownAwayDirection_ = hitDirection;
 
 		isHitKnockBack_ = false;
 		hitKnockBackTimer_ = 0.0f;
 
 		behaviorRequest_ = BehaviorEnemy::kBlownAway;
-
-		Vector3 effectPos = {
-		    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
-
-		    (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
-
-		    0.0f,
-		};
 
 		if (gameScene_) {
 			gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
@@ -703,28 +953,42 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 		return true;
 	}
 
-	// 通常状態への攻撃は小ノックバック
-	hitKnockBackDirection_ = hitDirection;
-	isHitKnockBack_ = true;
-	hitKnockBackTimer_ = 0.0f;
+	/*========== HPダメージ ==========*/
 
-	// 通常攻撃だけスタンを蓄積
-	if (attackType == AttackType::kNormal && behavior_ == BehaviorEnemy::kRoot) {
+	int32_t hpDamage = 0;
 
-		++stunHitCount_;
+	switch (attackType) {
+	case AttackType::kNormal:
+		hpDamage = kNormalAttackHpDamage;
+		break;
 
-		if (stunHitCount_ >= kStunHitCount) {
-			behaviorRequest_ = BehaviorEnemy::kStunned;
+	case AttackType::kCharged:
+		hpDamage = kChargedAttackHpDamage;
+		break;
+	}
+
+	bool defeated = ApplyHpDamage(hpDamage);
+
+	/*========== 生存中のリアクション ==========*/
+
+	if (!defeated) {
+		// 小ノックバック
+		hitKnockBackDirection_ = hitDirection;
+		isHitKnockBack_ = true;
+		hitKnockBackTimer_ = 0.0f;
+
+		// 通常攻撃だけスタン値を蓄積
+		if (attackType == AttackType::kNormal && behavior_ == BehaviorEnemy::kRoot) {
+
+			++stunHitCount_;
+
+			if (stunHitCount_ >= kStunHitCount) {
+				behaviorRequest_ = BehaviorEnemy::kStunned;
+			}
 		}
 	}
 
-	Vector3 effectPos = {
-	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
-
-	    (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
-
-	    0.0f,
-	};
+	/*========== ヒットエフェクト ==========*/
 
 	if (gameScene_) {
 		gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
@@ -753,19 +1017,26 @@ void Enemy::ConsumeBlownAwayHit() { canHitEnemyInCurrentBounce_ = false; }
 
 // 吹き飛んできた敵との衝突処理
 void Enemy::OnCollisionBlownAwayEnemy(float attackDirection) {
-
-	// 行動可能な状態でなければ受け付けない
+	// 行動可能な敵だけが受け付ける
 	if (!CanReceiveBlownAwayHit()) {
 		return;
 	}
 
-	// 吹き飛んできた方向へ押し出す
-	hitKnockBackDirection_ = attackDirection;
+	// 飛来した敵から大きなHPダメージを受ける
+	bool defeated = ApplyHpDamage(kBlownAwayHitHpDamage);
 
+	// 撃破された場合は、ノックバックやスタンで
+	// 死亡リクエストを上書きしない
+	if (defeated) {
+		return;
+	}
+
+	// 飛来した敵との位置関係に応じてノックバック
+	hitKnockBackDirection_ = attackDirection;
 	isHitKnockBack_ = true;
 	hitKnockBackTimer_ = 0.0f;
 
-	// 通常攻撃より大きいスタンダメージ
+	// HPとは別にスタン値も蓄積
 	stunHitCount_ += kBlownAwayHitStunDamage;
 
 	if (stunHitCount_ >= kStunHitCount) {
@@ -784,5 +1055,30 @@ float Enemy::GetBlownAwayDirectionX() const {
 
 	return blownAwayDirection_;
 }
+
+// HPダメージを受ける
+bool Enemy::ApplyHpDamage(int32_t damage) {
+	if (behavior_ == BehaviorEnemy::kDeath || isDead_) {
+		return false;
+	}
+
+	hp_ -= damage;
+	hp_ = std::max(hp_, 0);
+
+	if (hp_ <= 0) {
+		// 他の状態への遷移が残らないようにする
+		isHitKnockBack_ = false;
+		hitKnockBackTimer_ = 0.0f;
+
+		canHitEnemyInCurrentBounce_ = false;
+		behaviorRequest_ = BehaviorEnemy::kDeath;
+
+		return true;
+	}
+
+	return false;
+}
+
+
 
 void Enemy::SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }

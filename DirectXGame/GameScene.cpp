@@ -96,7 +96,7 @@ void GameScene::Initialize() {
 		newEnemy->SetMapChipField(mapChipField_);
 
 		// 座標をマップチップ番号で指定
-		Vector3 enemyPos = mapChipField_->GetMapChipPositionByIndex(40 + i * 7, 18);
+		Vector3 enemyPos = mapChipField_->GetMapChipPositionByIndex(40 + i * 7, 16);
 
 		// 敵の初期化
 		newEnemy->Initialize(modelEnemy_, &camera_, enemyPos);
@@ -437,10 +437,6 @@ void GameScene::Draw() {
 	for (Enemy* enemy : enemies_) {
 		enemy->Draw();
 	}
-	//// 敵の描画
-	// for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
-	//	shieldEnemy->Draw();
-	// }
 
 	// ヒットエフェクトの描画
 	for (HitEffect* hitEffect : hitEffects_) {
@@ -560,27 +556,37 @@ void GameScene::CheckEnemyCollisions() {
 				continue;
 			}
 
-			// 被弾処理
-			target->OnCollisionBlownAwayEnemy(attacker->GetBlownAwayDirectionX());
-
-			// この飛行区間の1ヒットを消費
-			attacker->ConsumeBlownAwayHit();
-
-			// 敵同士の中間にエフェクト
 			Vector3 attackerPos = attacker->GetWorldPos();
 			Vector3 targetPos = target->GetWorldPos();
+
+			float differenceX = targetPos.x - attackerPos.x;
+			float knockBackDirection;
+
+			if (differenceX > 0.001f) {
+				knockBackDirection = 1.0f;
+
+			} else if (differenceX < -0.001f) {
+				knockBackDirection = -1.0f;
+
+			} else {
+				knockBackDirection = attacker->GetBlownAwayDirectionX();
+			}
+
+			// 対象へスタンダメージとノックバック
+			target->OnCollisionBlownAwayEnemy(knockBackDirection);
+
+			// この飛行区間の攻撃権を消費
+			attacker->ConsumeBlownAwayHit();
+
+			// 通常攻撃のエフェクトを流用
 			Vector3 effectPos = {
 			    (attackerPos.x + targetPos.x) / 2.0f,
-
 			    (attackerPos.y + targetPos.y) / 2.0f,
-
 			    0.0f,
 			};
 
 			CreateHitEffect(effectPos, HitEffectType::kHit);
 
-			// 1区間に1体までなので、
-			// targetのループを終了
 			break;
 		}
 	}

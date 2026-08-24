@@ -121,12 +121,26 @@ public:
 
 	float GetBlownAwayDirectionX() const;
 
+	int32_t GetHp() const { return hp_; }
+	int32_t GetStunValue() const { return stunHitCount_; }
+
 	// セッター
 	void SetGameScene(GameScene* gameScene);
 
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 
 private:
+	// HPダメージを受ける
+	// 撃破された場合はtrue
+	bool ApplyHpDamage(int32_t damage);
+
+	// 通常状態での地形に沿った移動
+	void UpdateRootMapMovement();
+
+	// 横移動に地形判定を適用する
+	// 壁に衝突した場合はtrue
+	bool MoveHorizontalWithMap(float movementX);
+
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
 	GameScene* gameScene_ = nullptr;
@@ -165,6 +179,35 @@ private:
 
 	// 経過時間
 	float walkTimer_ = 0.0f;
+
+	/*--------------- 通常状態の地形移動 ---------------*/
+	// 接地しているか
+	bool isOnGround_ = false;
+
+	// 重力加速度
+	static constexpr float kGravityAcceleration = 0.09f;
+
+	// 最大落下速度
+	static constexpr float kMaxFallSpeed = 0.75f;
+
+	// 地形とのめり込み防止用余白
+	static constexpr float kRootMapMargin = 0.05f;
+
+	/*--------------- HP管理 ---------------*/
+	// 最大HP
+	static constexpr int32_t kMaxHp = 6;
+
+	// 現在のHP
+	int32_t hp_ = kMaxHp;
+
+	// プレイヤーの通常攻撃によるHPダメージ
+	static constexpr int32_t kNormalAttackHpDamage = 1;
+
+	// プレイヤーの溜め攻撃によるHPダメージ
+	static constexpr int32_t kChargedAttackHpDamage = 2;
+
+	// 吹き飛んだ敵が与えるHPダメージ
+	static constexpr int32_t kBlownAwayHitHpDamage = 4;
 
 	/*--------------- スタン管理 ---------------*/
 	// 通常攻撃を受けた回数
@@ -241,7 +284,7 @@ private:
 	static constexpr float kBlownAwaySpeed = 0.75f;
 
 	// この時間までは速度を維持する
-	static constexpr float kBlownAwayFlyingTime = 2.5f;
+	static constexpr float kBlownAwayFlyingTime = 2.0f;
 
 	// 終了時の速度減衰率
 	static constexpr float kBlownAwayStopAttenuation = 0.88f;
@@ -261,7 +304,7 @@ private:
 	bool canHitEnemyInCurrentBounce_ = false;
 
 	// 吹き飛び敵が与えるスタン値
-	static constexpr int32_t kBlownAwayHitStunDamage = 2;
+	static constexpr int32_t kBlownAwayHitStunDamage = 1;
 
 	/*--------------- 地形反射 ---------------*/
 	// 反射回数
@@ -278,10 +321,29 @@ private:
 	bool isDead_ = false;
 
 	// 死亡アクション時間管理
-	float deathTimer_ = 0.0f;
+	//float deathTimer_ = 0.0f;
 	static constexpr float kDeathTime = 1.0f;
 
 	bool isCollisionDisenabled_ = false;
+
+	/*--------------- 破裂死亡演出 ---------------*/
+	// 死亡演出の経過時間
+	float deathTimer_ = 0.0f;
+
+	// 最初に膨らむ時間
+	static constexpr float kDeathExpandTime = 0.10f;
+
+	// 膨らんだ後に消える時間
+	static constexpr float kDeathShrinkTime = 0.12f;
+
+	// 膨張倍率
+	static constexpr float kDeathExpandScaleRate = 1.4f;
+
+	// 死亡開始時の大きさ
+	KamataEngine::Vector3 deathStartScale_ = {};
+
+	// ヒットエフェクトを生成済みか
+	bool hasCreatedDeathBurstEffect_ = false;
 
 	/*--------------- ビヘイビア管理用 ---------------*/
 	// 現在の振る舞い
