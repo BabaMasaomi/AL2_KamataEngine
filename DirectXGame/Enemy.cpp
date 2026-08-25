@@ -75,6 +75,10 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 
 	isOnGround_ = false;
 
+	// 追跡対象の位置の初期化
+	plannedTargetY_ = worldTransform_.translation_.y;
+
+	// 追跡ジャンプ
 	chaseJumpCooldownTimer_ = 0.0f;
 
 	chaseJumpState_ = ChaseJumpState::kDirectChase;
@@ -83,8 +87,10 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 	chaseLandingWaitTimer_ = 0.0f;
 	chaseJumpCooldownTimer_ = 0.0f;
 
+	// 追跡ジャンプの踏切位置の初期化
 	takeoffTargetX_ = worldTransform_.translation_.x;
 
+	// 追跡ジャンプの踏切位置での停止時間の初期化
 	takeoffPauseTimer_ = 0.0f;
 	chaseJumpDirection_ = 0.0f;
 }
@@ -362,32 +368,120 @@ void Enemy::UpdateChaseDirection() {
 	Vector3 playerPos = target_->GetWorldPos();
 
 	float differenceX = playerPos.x - worldTransform_.translation_.x;
-
 	float differenceY = playerPos.y - worldTransform_.translation_.y;
 
-	/*========== 固定した踏切位置へ移動 ==========*/
+	/*========== プレイヤーの移動に応じた経路再計算 ==========*/
+	bool isMovingToPlannedPosition = chaseJumpState_ == ChaseJumpState::kMoveToTakeoff || chaseJumpState_ == ChaseJumpState::kTakeoffPause || chaseJumpState_ == ChaseJumpState::kMoveToDropEdge ||
+	                                 chaseJumpState_ == ChaseJumpState::kLandingWait;
 
+	/*
+	 * プレイヤーが接地した状態で別の高さへ移動した場合、
+	 * 古い踏み切り位置・降り口を破棄する。
+	 *
+	 * kJumpingとkDroppingは空中なので、
+	 * 着地するまで現在の動きを継続する。
+	 */
+	if (isMovingToPlannedPosition && target_->IsOnGround() && std::abs(playerPos.y - plannedTargetY_) > kChaseReplanHeightThreshold) {
+
+		chaseJumpState_ = ChaseJumpState::kDirectChase;
+
+		takeoffPauseTimer_ = 0.0f;
+		chaseLandingWaitTimer_ = 0.0f;
+
+		plannedJumpDirection_ = 0.0f;
+		chaseJumpDirection_ = 0.0f;
+		dropDirection_ = 0.0f;
+	}
+
+	/*========== 下方向：足場の端へ移動 ==========*/
+	if (chaseJumpState_ == ChaseJumpState::kMoveToDropEdge) {
+
+		// すでに足場から離れた場合
+		if (!isOnGround_) {
+			chaseJumpState_ = ChaseJumpState::kDropping;
+
+			velocity_.x = dropDirection_ * kAirChaseMoveSpeed;
+
+			return;
+		}
+
+		float differenceToDrop = dropTargetX_ - worldTransform_.translation_.x;
+
+		if (differenceToDrop > 0.0f) {
+			velocity_.x = std::min(kMoveSpeed, differenceToDrop);
+		} else {
+			velocity_.x = std::max(-kMoveSpeed, differenceToDrop);
+		}
+
+		/*
+		 * 目標位置へ着いても、接地が切れるまでは
+		 * 外側へ少し進み続ける。
+		 */
+		if (std::abs(differenceToDrop) <= kTakeoffArrivalDistance) {
+
+			velocity_.x = dropDirection_ * kMoveSpeed;
+		}
+
+		return;
+	}
+
+	/*========== 下方向：落下中 ==========*/
+
+	if (chaseJumpState_ == ChaseJumpState::kDropping) {
+
+		// 落下中はプレイヤーのX方向へ寄せる
+		if (differenceX > kChaseStopDistance) {
+			velocity_.x = kAirChaseMoveSpeed;
+
+		} else if (differenceX < -kChaseStopDistance) {
+			velocity_.x = -kAirChaseMoveSpeed;
+
+		} else {
+			velocity_.x = 0.0f;
+		}
+
+		return;
+	}
+
+	/*========== 固定した踏切位置へ移動 ==========*/
 	if (chaseJumpState_ == ChaseJumpState::kMoveToTakeoff) {
 
 		float differenceToTakeoff = takeoffTargetX_ - worldTransform_.translation_.x;
 
-		// 踏切位置へ到着
+		/*========== 踏切位置へ到着 ==========*/
 		if (std::abs(differenceToTakeoff) <= kTakeoffArrivalDistance) {
-
 			velocity_.x = 0.0f;
-
 			chaseJumpState_ = ChaseJumpState::kTakeoffPause;
-
 			takeoffPauseTimer_ = kTakeoffPauseTime;
 
 			return;
 		}
 
-		// 移動量が残り距離を超えないようにする
+		/*
+		 * プレイヤーの移動や着地位置の変化によって、
+		 * 保存した踏み切り位置へ現在の足場から
+		 * 行けなくなっていた場合だけ中止する。
+		 */
+		if (isOnGround_ && !IsTakeoffReachableOnCurrentPlatform(takeoffTargetX_)) {
+
+			chaseJumpState_ = ChaseJumpState::kDirectChase;
+
+			velocity_.x = 0.0f;
+
+			plannedJumpDirection_ = 0.0f;
+			chaseJumpDirection_ = 0.0f;
+
+			return;
+		}
+
+		/*========== 踏切位置へ移動 ==========*/
+
 		if (differenceToTakeoff > 0.0f) {
+
 			velocity_.x = std::min(kMoveSpeed, differenceToTakeoff);
 
 		} else {
+
 			velocity_.x = std::max(-kMoveSpeed, differenceToTakeoff);
 		}
 
@@ -395,7 +489,6 @@ void Enemy::UpdateChaseDirection() {
 	}
 
 	/*========== 踏切位置で停止 ==========*/
-
 	if (chaseJumpState_ == ChaseJumpState::kTakeoffPause) {
 
 		velocity_.x = 0.0f;
@@ -422,8 +515,27 @@ void Enemy::UpdateChaseDirection() {
 		}
 
 		if (hasClearedTargetPlatformTop_) {
-			// 足場上面を越えたので内側へ移動
-			velocity_.x = chaseJumpDirection_ * kPlatformTransferSpeed;
+			/*
+			 * 足場上面を越えた後は、
+			 * 足場内の着地目標へ移動する。
+			 */
+			float differenceToLanding = targetPlatformLandingX_ - worldTransform_.translation_.x;
+
+			if (std::abs(differenceToLanding) <= kPlatformLandingArrivalDistance) {
+
+				// 着地位置まで来たので横移動を停止
+				velocity_.x = 0.0f;
+
+			} else if (differenceToLanding > 0.0f) {
+
+				// 残り距離を超えないように右へ移動
+				velocity_.x = std::min(kPlatformTransferSpeed, differenceToLanding);
+
+			} else {
+
+				// 残り距離を超えないように左へ移動
+				velocity_.x = std::max(-kPlatformTransferSpeed, differenceToLanding);
+			}
 
 		} else {
 			// 足場外側で垂直に上昇
@@ -434,15 +546,24 @@ void Enemy::UpdateChaseDirection() {
 	}
 
 	/*========== 着地後待機 ==========*/
-
 	if (chaseJumpState_ == ChaseJumpState::kLandingWait) {
 
-		velocity_.x = 0.0f;
-		return;
+		bool playerMovedFar = std::abs(differenceX) > MapChipField::kBlockWidth * 1.5f;
+		bool playerChangedHeight = std::abs(playerPos.y - plannedTargetY_) > kChaseReplanHeightThreshold;
+
+		if (playerMovedFar || playerChangedHeight) {
+
+			chaseJumpState_ = ChaseJumpState::kDirectChase;
+			chaseLandingWaitTimer_ = 0.0f;
+
+			// このまま通常追跡判定へ進む
+		} else {
+			velocity_.x = 0.0f;
+			return;
+		}
 	}
 
 	/*========== 通常追跡 ==========*/
-
 	// 接地したプレイヤーが高所にいる場合、
 	// 頭上の足場の踏切位置を探す
 	if (isOnGround_ && target_->IsOnGround() && differenceY > kJumpHeightThreshold) {
@@ -455,11 +576,17 @@ void Enemy::UpdateChaseDirection() {
 
 		if (foundPlatform) {
 			takeoffTargetX_ = foundTakeoffX;
-
 			plannedJumpDirection_ = foundJumpDirection;
-
 			targetPlatformTopY_ = foundPlatformTopY;
 
+			/*
+			 * 踏み切り位置から足場側へ、
+			 * 敵1体分と余白だけ進んだ位置を
+			 * 着地目標にする。
+			 */
+			targetPlatformLandingX_ = takeoffTargetX_ + plannedJumpDirection_ * (kWidth + kRootMapMargin * 2.0f);
+
+			plannedTargetY_ = playerPos.y;
 			hasClearedTargetPlatformTop_ = false;
 
 			chaseJumpState_ = ChaseJumpState::kMoveToTakeoff;
@@ -472,17 +599,60 @@ void Enemy::UpdateChaseDirection() {
 		}
 	}
 
-	/*========== プレイヤーのX位置を直接追跡 ==========*/
+	/*========== 下方向の追跡 ==========*/
+	if (isOnGround_ && target_->IsOnGround() && differenceY < -kDropHeightThreshold) {
 
+		float foundDropTargetX = 0.0f;
+		float foundDropDirection = 0.0f;
+
+		if (FindCurrentPlatformDropEdge(foundDropTargetX, foundDropDirection)) {
+
+			dropTargetX_ = foundDropTargetX;
+			dropDirection_ = foundDropDirection;
+
+			// この時点の追跡対象の高さを保存
+			plannedTargetY_ = playerPos.y;
+
+			chaseJumpState_ = ChaseJumpState::kMoveToDropEdge;
+
+			float differenceToDrop = dropTargetX_ - worldTransform_.translation_.x;
+
+			velocity_.x = differenceToDrop >= 0.0f ? kMoveSpeed : -kMoveSpeed;
+
+			return;
+		}
+	}
+
+	/*========== プレイヤーのX位置を直接追跡 ==========*/
 	float chaseSpeed = isOnGround_ ? kMoveSpeed : kAirChaseMoveSpeed;
 
+	/*========== 右方向へ追跡 ==========*/
 	if (differenceX > kChaseStopDistance) {
+
+		/*
+		 * プレイヤーが上にいるのに
+		 * 上方向の経路を作れていない場合、
+		 * 足場端から勝手に落ちないようにする。
+		 */
+		if (isOnGround_ && differenceY > kJumpHeightThreshold && !HasFloorAhead(1.0f)) {
+
+			velocity_.x = 0.0f;
+			return;
+		}
 
 		velocity_.x = chaseSpeed;
 		return;
 	}
 
+	/*========== 左方向へ追跡 ==========*/
+
 	if (differenceX < -kChaseStopDistance) {
+
+		if (isOnGround_ && differenceY > kJumpHeightThreshold && !HasFloorAhead(-1.0f)) {
+
+			velocity_.x = 0.0f;
+			return;
+		}
 
 		velocity_.x = -chaseSpeed;
 		return;
@@ -493,32 +663,23 @@ void Enemy::UpdateChaseDirection() {
 
 // 追跡中のジャンプ判断
 void Enemy::TryChaseJump() {
-	// 空中、クールタイム中、または追跡対象がいない場合はジャンプしない
-	if (!isOnGround_ || chaseJumpCooldownTimer_ > 0.0f || target_ == nullptr) {
+	// プレイヤーがいない場合は何もしない
+	if (target_ == nullptr) {
 		return;
 	}
 
-	// 足場の外側まで移動中はジャンプしない
+	// 下方向の追跡中はジャンプしない
+	if (chaseJumpState_ == ChaseJumpState::kMoveToDropEdge || chaseJumpState_ == ChaseJumpState::kDropping) {
+		return;
+	}
+
+	// 接地していない場合はジャンプしない
+	if (!isOnGround_) {
+		return;
+	}
+
+	// 踏み切り位置へ移動中はジャンプしない
 	if (chaseJumpState_ == ChaseJumpState::kMoveToTakeoff) {
-		return;
-	}
-
-	// 足場の外側へ到着し、一時停止した後の乗り移りジャンプ
-	if (chaseJumpState_ == ChaseJumpState::kTakeoffPause) {
-		if (takeoffPauseTimer_ > 0.0f) {
-			return;
-		}
-
-		chaseJumpDirection_ = plannedJumpDirection_;
-
-		// 最初は真上にジャンプする
-		velocity_.x = 0.0f;
-		velocity_.y = kChaseJumpSpeed;
-
-		isOnGround_ = false;
-		hasClearedTargetPlatformTop_ = false;
-		chaseJumpState_ = ChaseJumpState::kJumping;
-		chaseJumpCooldownTimer_ = kChaseJumpCooldownTime;
 		return;
 	}
 
@@ -527,71 +688,32 @@ void Enemy::TryChaseJump() {
 		return;
 	}
 
-	// 通常追跡中は、正面に壁がある場合だけジャンプする
-	if (!IsWallAhead()) {
+	/*
+	 * 計画された踏み切り位置で
+	 * 停止している場合だけジャンプする。
+	 */
+	if (chaseJumpState_ != ChaseJumpState::kTakeoffPause) {
 		return;
 	}
 
-	// 壁を越えるジャンプの方向は現在の移動方向に合わせる
-	if (velocity_.x > 0.0f) {
-		chaseJumpDirection_ = 1.0f;
-	} else if (velocity_.x < 0.0f) {
-		chaseJumpDirection_ = -1.0f;
-	} else {
+	// ジャンプ前の停止時間が残っている
+	if (takeoffPauseTimer_ > 0.0f) {
 		return;
 	}
 
-	velocity_.x = chaseJumpDirection_ * kAirChaseMoveSpeed;
+	// 保存しておいた足場方向を使用
+	chaseJumpDirection_ = plannedJumpDirection_;
+
+	// 最初は垂直に上昇
+	velocity_.x = 0.0f;
 	velocity_.y = kChaseJumpSpeed;
 
 	isOnGround_ = false;
-
-	// 壁越えジャンプでは足場上端を基準にした制御を使用しない
-	hasClearedTargetPlatformTop_ = true;
+	hasClearedTargetPlatformTop_ = false;
 
 	chaseJumpState_ = ChaseJumpState::kJumping;
+
 	chaseJumpCooldownTimer_ = kChaseJumpCooldownTime;
-}
-
-// 進行方向に壁があるか
-bool Enemy::IsWallAhead() const {
-	if (!mapChipField_) {
-		return false;
-	}
-
-	// 停止中は調べる方向がない
-	if (std::abs(velocity_.x) < 0.001f) {
-		return false;
-	}
-
-	const float halfWidth = kWidth / 2.0f;
-	const float halfHeight = kHeight / 2.0f;
-
-	float direction = velocity_.x > 0.0f ? 1.0f : -1.0f;
-
-	float checkX = worldTransform_.translation_.x + direction * (halfWidth + kWallCheckDistance);
-
-	// 足元寄りと中央付近の2点を確認
-	Vector3 checkPositions[] = {
-	    {
-         checkX, worldTransform_.translation_.y - halfHeight + 0.20f,
-         worldTransform_.translation_.z,
-	     },
-	    {
-         checkX,      worldTransform_.translation_.y,
-         worldTransform_.translation_.z,
-	     },
-	};
-
-	for (const Vector3& position : checkPositions) {
-		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
-
-		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) == MapChipType::kBlock) {
-			return true;
-		}
-	}
-
-	return false;
 }
 
 // 横移動に地形判定を適用する
@@ -684,16 +806,23 @@ bool Enemy::MoveHorizontalWithMap(float movementX) {
 // 見つかった場合はtrue
 bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, float& platformTopY) const {
 
-	if (!mapChipField_ || !target_) {
+	if (!mapChipField_ || !target_ || !isOnGround_) {
 		return false;
 	}
 
-	// 敵の高さを基準に、上方向を調べる
 	MapChipField::IndexSet enemyIndex = mapChipField_->GetMapChipIndexSetByPosition(worldTransform_.translation_);
 
-	// X方向はプレイヤーのいる列を使用する
-	MapChipField::IndexSet playerIndex = mapChipField_->GetMapChipIndexSetByPosition(target_->GetWorldPos());
+	const float enemyX = worldTransform_.translation_.x;
 
+	const float playerX = target_->GetWorldPos().x;
+
+	const float takeoffMargin = kWidth / 2.0f + kRootMapMargin;
+
+	/*
+	 * 敵に近い高さから順に調べる。
+	 * 同じ高さに複数の足場がある場合は、
+	 * 最も移動コストが小さいものを選ぶ。
+	 */
 	for (uint32_t step = 1; step <= kOverheadSearchRows; ++step) {
 
 		if (enemyIndex.yIndex < step) {
@@ -702,63 +831,356 @@ bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, f
 
 		uint32_t checkY = enemyIndex.yIndex - step;
 
-		// プレイヤーがいるX列に足場があるか確認
-		if (mapChipField_->GetMapChipTypeByIndex(playerIndex.xIndex, checkY) != MapChipType::kBlock) {
+		bool foundReachablePlatform = false;
+
+		float bestRouteCost = std::numeric_limits<float>::max();
+
+		float bestTakeoffX = 0.0f;
+		float bestJumpDirection = 0.0f;
+		float bestPlatformTopY = 0.0f;
+
+		/*========== この高さの足場を横方向全体から探す ==========*/
+		uint32_t xIndex = 0;
+
+		while (xIndex < MapChipField::kNumBlockHorizontal) {
+
+			if (mapChipField_->GetMapChipTypeByIndex(xIndex, checkY) != MapChipType::kBlock) {
+
+				++xIndex;
+				continue;
+			}
+
+			/*========== 連続した足場の左右端を取得 ==========*/
+			uint32_t leftIndex = xIndex;
+			uint32_t rightIndex = xIndex;
+
+			while (rightIndex + 1 < MapChipField::kNumBlockHorizontal && mapChipField_->GetMapChipTypeByIndex(rightIndex + 1, checkY) == MapChipType::kBlock) {
+
+				++rightIndex;
+			}
+
+			/*
+			 * 次の検索では、
+			 * 今見つけた足場の右隣から再開する。
+			 */
+			xIndex = rightIndex + 1;
+
+			/*========== 壁を足場として扱わない ==========*/
+			bool hasWalkableTop = false;
+
+			for (uint32_t surfaceX = leftIndex; surfaceX <= rightIndex; ++surfaceX) {
+
+				if (checkY == 0 || mapChipField_->GetMapChipTypeByIndex(surfaceX, checkY - 1) == MapChipType::kBlank) {
+
+					hasWalkableTop = true;
+					break;
+				}
+			}
+
+			if (!hasWalkableTop) {
+				continue;
+			}
+
+			MapChipField::Rect leftRect = mapChipField_->GetRectByIndex(leftIndex, checkY);
+			MapChipField::Rect rightRect = mapChipField_->GetRectByIndex(rightIndex, checkY);
+
+			float candidatePlatformTopY = leftRect.top;
+
+			float leftTakeoffX = leftRect.left - takeoffMargin;
+			float rightTakeoffX = rightRect.right + takeoffMargin;
+
+			/*
+			 * 踏み切り位置が現在の足場上にあるか。
+			 * これにより、途中で崖から落ちる経路を除外する。
+			 */
+			bool canUseLeft = IsTakeoffReachableOnCurrentPlatform(leftTakeoffX);
+			bool canUseRight = IsTakeoffReachableOnCurrentPlatform(rightTakeoffX);
+
+			/*========== 左側から乗る経路を評価 ==========*/
+			if (canUseLeft) {
+				float landingX = leftTakeoffX + (kWidth + kRootMapMargin * 2.0f);
+
+				float routeCost = std::abs(enemyX - leftTakeoffX) + std::abs(playerX - landingX);
+
+				if (routeCost < bestRouteCost) {
+					bestRouteCost = routeCost;
+					bestTakeoffX = leftTakeoffX;
+					bestJumpDirection = 1.0f;
+					bestPlatformTopY = candidatePlatformTopY;
+
+					foundReachablePlatform = true;
+				}
+			}
+
+			/*========== 右側から乗る経路を評価 ==========*/
+			if (canUseRight) {
+				float landingX = rightTakeoffX - (kWidth + kRootMapMargin * 2.0f);
+
+				float routeCost = std::abs(enemyX - rightTakeoffX) + std::abs(playerX - landingX);
+
+				if (routeCost < bestRouteCost) {
+					bestRouteCost = routeCost;
+					bestTakeoffX = rightTakeoffX;
+					bestJumpDirection = -1.0f;
+					bestPlatformTopY = candidatePlatformTopY;
+
+					foundReachablePlatform = true;
+				}
+			}
+		}
+
+		/*
+		 * この高さに乗れる足場が見つかった場合、
+		 * さらに上を直接狙わず、まずその足場へ乗る。
+		 */
+		if (foundReachablePlatform) {
+			takeoffX = bestTakeoffX;
+			jumpDirection = bestJumpDirection;
+			platformTopY = bestPlatformTopY;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// 現在いる足場から降りる位置を取得
+bool Enemy::FindCurrentPlatformDropEdge(float& dropTargetX, float& dropDirection) const {
+
+	if (!mapChipField_ || !target_ || !isOnGround_) {
+		return false;
+	}
+
+	const float halfWidth = kWidth / 2.0f;
+	const float halfHeight = kHeight / 2.0f;
+
+	/*========== 現在いる足場を取得 ==========*/
+	Vector3 floorCheckPosition = {
+	    worldTransform_.translation_.x,
+	    worldTransform_.translation_.y - halfHeight - kRootMapMargin,
+	    worldTransform_.translation_.z,
+	};
+
+	MapChipField::IndexSet floorIndex = mapChipField_->GetMapChipIndexSetByPosition(floorCheckPosition);
+
+	if (mapChipField_->GetMapChipTypeByIndex(floorIndex.xIndex, floorIndex.yIndex) != MapChipType::kBlock) {
+		return false;
+	}
+
+	/*========== 足場の左右端を取得 ==========*/
+	uint32_t leftIndex = floorIndex.xIndex;
+	uint32_t rightIndex = floorIndex.xIndex;
+
+	while (leftIndex > 0) {
+		if (mapChipField_->GetMapChipTypeByIndex(leftIndex - 1, floorIndex.yIndex) != MapChipType::kBlock) {
+			break;
+		}
+
+		--leftIndex;
+	}
+
+	while (rightIndex + 1 < MapChipField::kNumBlockHorizontal) {
+
+		if (mapChipField_->GetMapChipTypeByIndex(rightIndex + 1, floorIndex.yIndex) != MapChipType::kBlock) {
+			break;
+		}
+
+		++rightIndex;
+	}
+
+	MapChipField::Rect leftRect = mapChipField_->GetRectByIndex(leftIndex, floorIndex.yIndex);
+	MapChipField::Rect rightRect = mapChipField_->GetRectByIndex(rightIndex, floorIndex.yIndex);
+
+	/*========== 左右の落下位置を作る ==========*/
+	float leftDropX = leftRect.left - halfWidth - kRootMapMargin - kDropEdgeExtraMargin;
+	float rightDropX = rightRect.right + halfWidth + kRootMapMargin + kDropEdgeExtraMargin;
+
+	/*========== 左右の落下先を調べる ==========*/
+	float leftLandingTopY = 0.0f;
+	float rightLandingTopY = 0.0f;
+
+	bool canDropLeft = FindLandingPlatformBelow(leftDropX, leftLandingTopY);
+
+	bool canDropRight = FindLandingPlatformBelow(rightDropX, rightLandingTopY);
+
+	Vector3 playerPos = target_->GetWorldPos();
+
+	float currentHeightDifference = std::abs(playerPos.y - worldTransform_.translation_.y);
+
+	/*========== 左の落下先を評価 ==========*/
+
+	if (canDropLeft) {
+		// 左側へ落下した場合の着地後の敵中心Y
+		float predictedEnemyY = leftLandingTopY + halfHeight + kRootMapMargin;
+
+		float nextHeightDifference = std::abs(playerPos.y - predictedEnemyY);
+
+		/*
+		 * 落下してもプレイヤーとの高低差が
+		 * 小さくならないなら候補から外す。
+		 */
+		if (nextHeightDifference >= currentHeightDifference) {
+			canDropLeft = false;
+		}
+	}
+
+	/*========== 右の落下先を評価 ==========*/
+	if (canDropRight) {
+		float predictedEnemyY = rightLandingTopY + halfHeight + kRootMapMargin;
+
+		float nextHeightDifference = std::abs(playerPos.y - predictedEnemyY);
+
+		if (nextHeightDifference >= currentHeightDifference) {
+			canDropRight = false;
+		}
+	}
+
+	/*========== 有効な降り口がない ==========*/
+	if (!canDropLeft && !canDropRight) {
+		return false;
+	}
+
+	/*========== 片側だけ有効 ==========*/
+	if (canDropLeft && !canDropRight) {
+		dropTargetX = leftDropX;
+		dropDirection = -1.0f;
+		return true;
+	}
+
+	if (!canDropLeft && canDropRight) {
+		dropTargetX = rightDropX;
+		dropDirection = 1.0f;
+		return true;
+	}
+
+	/*========== 両側が有効なら総距離を比較 ==========*/
+	float enemyX = worldTransform_.translation_.x;
+
+	float leftRouteCost = std::abs(enemyX - leftDropX) + std::abs(playerPos.x - leftDropX);
+	float rightRouteCost = std::abs(enemyX - rightDropX) + std::abs(playerPos.x - rightDropX);
+
+	if (leftRouteCost <= rightRouteCost) {
+		dropTargetX = leftDropX;
+		dropDirection = -1.0f;
+	} else {
+		dropTargetX = rightDropX;
+		dropDirection = 1.0f;
+	}
+
+	return true;
+}
+
+// 指定したX位置から落下した場合の着地面を探す
+bool Enemy::FindLandingPlatformBelow(float dropX, float& landingTopY) const {
+
+	if (!mapChipField_) {
+		return false;
+	}
+
+	Vector3 startPosition = {
+	    dropX,
+	    worldTransform_.translation_.y,
+	    worldTransform_.translation_.z,
+	};
+
+	MapChipField::IndexSet startIndex = mapChipField_->GetMapChipIndexSetByPosition(startPosition);
+
+	// CSVでは下へ行くほどyIndexが大きくなる
+	for (uint32_t yIndex = startIndex.yIndex + 1; yIndex < MapChipField::kNumBlockVertical; ++yIndex) {
+
+		if (mapChipField_->GetMapChipTypeByIndex(startIndex.xIndex, yIndex) != MapChipType::kBlock) {
 			continue;
 		}
 
-		// 見つけたブロックから足場の左右端を探す
-		uint32_t leftIndex = playerIndex.xIndex;
-		uint32_t rightIndex = playerIndex.xIndex;
+		MapChipField::Rect landingRect = mapChipField_->GetRectByIndex(startIndex.xIndex, yIndex);
 
-		while (leftIndex > 0) {
-			if (mapChipField_->GetMapChipTypeByIndex(leftIndex - 1, checkY) != MapChipType::kBlock) {
-				break;
-			}
-
-			--leftIndex;
-		}
-
-		while (rightIndex + 1 < MapChipField::kNumBlockHorizontal) {
-
-			if (mapChipField_->GetMapChipTypeByIndex(rightIndex + 1, checkY) != MapChipType::kBlock) {
-				break;
-			}
-
-			++rightIndex;
-		}
-
-		MapChipField::Rect leftRect = mapChipField_->GetRectByIndex(leftIndex, checkY);
-
-		MapChipField::Rect rightRect = mapChipField_->GetRectByIndex(rightIndex, checkY);
-
-		platformTopY = leftRect.top;
-
-		// 足場の外側に、敵1体分の余裕を取る
-		const float takeoffMargin = kWidth / 2.0f + kRootMapMargin;
-
-		float leftTakeoffX = leftRect.left - takeoffMargin;
-
-		float rightTakeoffX = rightRect.right + takeoffMargin;
-
-		float distanceToLeft = std::abs(worldTransform_.translation_.x - leftTakeoffX);
-
-		float distanceToRight = std::abs(worldTransform_.translation_.x - rightTakeoffX);
-
-		if (distanceToLeft <= distanceToRight) {
-			// 左端から足場の右方向へ入る
-			takeoffX = leftTakeoffX;
-			jumpDirection = 1.0f;
-		} else {
-			// 右端から足場の左方向へ入る
-			takeoffX = rightTakeoffX;
-			jumpDirection = -1.0f;
-		}
-
+		landingTopY = landingRect.top;
 		return true;
 	}
 
 	return false;
+}
+
+// 指定方向の少し先に床があるか
+// 指定方向の少し先に床があるか
+bool Enemy::HasFloorAhead(float direction) const {
+
+	if (!mapChipField_ || std::abs(direction) < 0.001f) {
+		return false;
+	}
+
+	const float halfWidth = kWidth / 2.0f;
+	const float halfHeight = kHeight / 2.0f;
+
+	Vector3 checkPosition = {
+	    worldTransform_.translation_.x + direction * (halfWidth + kMoveSpeed + kRootMapMargin),
+	    worldTransform_.translation_.y - halfHeight - kRootMapMargin,
+	    worldTransform_.translation_.z,
+	};
+
+	MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(checkPosition);
+
+	return mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) == MapChipType::kBlock;
+}
+
+// 指定したX座標まで現在の足場上を歩いて到達できるか
+bool Enemy::IsTakeoffReachableOnCurrentPlatform(float takeoffX) const {
+
+	if (!mapChipField_ || !isOnGround_) {
+		return false;
+	}
+
+	const float halfWidth = kWidth / 2.0f;
+	const float halfHeight = kHeight / 2.0f;
+
+	// 敵の現在の足元を調べる
+	Vector3 floorCheckPosition = {
+	    worldTransform_.translation_.x,
+
+	    worldTransform_.translation_.y - halfHeight - kRootMapMargin,
+
+	    worldTransform_.translation_.z,
+	};
+
+	MapChipField::IndexSet floorIndex = mapChipField_->GetMapChipIndexSetByPosition(floorCheckPosition);
+
+	if (mapChipField_->GetMapChipTypeByIndex(floorIndex.xIndex, floorIndex.yIndex) != MapChipType::kBlock) {
+		return false;
+	}
+
+	// 現在いる足場の左右端を探す
+	uint32_t leftIndex = floorIndex.xIndex;
+	uint32_t rightIndex = floorIndex.xIndex;
+
+	while (leftIndex > 0) {
+		if (mapChipField_->GetMapChipTypeByIndex(leftIndex - 1, floorIndex.yIndex) != MapChipType::kBlock) {
+			break;
+		}
+
+		--leftIndex;
+	}
+
+	while (rightIndex + 1 < MapChipField::kNumBlockHorizontal) {
+
+		if (mapChipField_->GetMapChipTypeByIndex(rightIndex + 1, floorIndex.yIndex) != MapChipType::kBlock) {
+			break;
+		}
+
+		++rightIndex;
+	}
+
+	MapChipField::Rect leftRect = mapChipField_->GetRectByIndex(leftIndex, floorIndex.yIndex);
+	MapChipField::Rect rightRect = mapChipField_->GetRectByIndex(rightIndex, floorIndex.yIndex);
+
+	/*
+	 * 敵全体が現在の足場上に収まる範囲。
+	 * 余白分だけ判定を緩める。
+	 */
+	float reachableLeft = leftRect.left + halfWidth - kRootMapMargin;
+	float reachableRight = rightRect.right - halfWidth + kRootMapMargin;
+
+	return takeoffX >= reachableLeft && takeoffX <= reachableRight;
 }
 
 // 通常行動初期化
@@ -798,17 +1220,50 @@ void Enemy::BehaviorRootInitialize() {
 void Enemy::BehaviorRootUpdate() {
 	const float deltaTime = 1.0f / 60.0f;
 
-	/*========== ジャンプ状態の更新 ==========*/
-	// 前フレームで着地していた場合
+	/*========== 上方向ジャンプの着地判定 ==========*/
 	if (chaseJumpState_ == ChaseJumpState::kJumping && isOnGround_) {
 
-		chaseJumpState_ = ChaseJumpState::kLandingWait;
+		// 計画した足場ジャンプの場合、着地位置の高さが想定通りか確認する
+		const float expectedEnemyY = targetPlatformTopY_ + kHeight / 2.0f + kRootMapMargin;
+		const float landingHeightError = std::abs(worldTransform_.translation_.y - expectedEnemyY);
+		bool landedSuccessfully = landingHeightError <= kPlatformLandingHeightTolerance;
 
-		chaseLandingWaitTimer_ = kChaseLandingWaitTime;
+		if (landedSuccessfully) {
+			chaseJumpState_ = ChaseJumpState::kLandingWait;
+
+			chaseLandingWaitTimer_ = kChaseLandingWaitTime;
+
+		} else {
+			chaseJumpState_ = ChaseJumpState::kDirectChase;
+
+			chaseLandingWaitTimer_ = 0.0f;
+			chaseJumpCooldownTimer_ = 0.15f;
+
+			hasClearedTargetPlatformTop_ = false;
+			chaseJumpDirection_ = 0.0f;
+			plannedJumpDirection_ = 0.0f;
+		}
 
 		velocity_.x = 0.0f;
 	}
 
+	/*========== 下方向落下の着地判定 ==========*/
+
+	if (chaseJumpState_ == ChaseJumpState::kDropping && isOnGround_) {
+
+		chaseJumpState_ = ChaseJumpState::kLandingWait;
+		chaseLandingWaitTimer_ = kChaseLandingWaitTime;
+
+		// 現在の着地点から再計画できるよう更新
+		if (target_) {
+			plannedTargetY_ = target_->GetWorldPos().y;
+		}
+
+		velocity_.x = 0.0f;
+	}
+
+
+	// ジャンプ後の着地待機時間を減算
 	if (chaseJumpState_ == ChaseJumpState::kLandingWait) {
 
 		chaseLandingWaitTimer_ -= deltaTime;

@@ -25,11 +25,13 @@ enum class BehaviorEnemy {
 
 // 追跡ジャンプの状態
 enum class ChaseJumpState {
-	kDirectChase,   // 通常追跡
-	kMoveToTakeoff, // 固定した踏切位置へ移動
-	kTakeoffPause,  // 踏切位置で一度停止
-	kJumping,       // ジャンプ中
-	kLandingWait,   // 着地後の待機
+	kDirectChase,    // 通常追跡
+	kMoveToTakeoff,  // 上方向：踏切位置へ移動
+	kTakeoffPause,   // 上方向：踏切位置で停止
+	kJumping,        // 上方向：ジャンプ中
+	kMoveToDropEdge, // 下方向：足場の端へ移動
+	kDropping,       // 下方向：落下中
+	kLandingWait,    // 着地後の待機
 };
 
 // マップとの当たり判定情報
@@ -158,9 +160,6 @@ private:
 	// 追跡中のジャンプ判断
 	void TryChaseJump();
 
-	// 進行方向に壁があるか
-	bool IsWallAhead() const;
-
 	// 横移動に地形判定を適用する
 	// 壁に衝突した場合はtrue
 	bool MoveHorizontalWithMap(float movementX);
@@ -168,6 +167,18 @@ private:
 	// 上方の足場から踏切位置を取得
 	// 見つかった場合はtrue
 	bool FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, float& platformTopY) const;
+
+	// 現在いる足場から降りる位置を取得
+	bool FindCurrentPlatformDropEdge(float& dropTargetX, float& dropDirection) const;
+
+	// 指定したX位置から落下した場合の着地面を探す
+	bool FindLandingPlatformBelow(float dropX, float& landingTopY) const;
+
+	// 指定方向の少し先に床があるか
+	bool HasFloorAhead(float direction) const;
+
+	// 指定したX座標まで現在の足場上を歩いて到達できるか
+	bool IsTakeoffReachableOnCurrentPlatform(float takeoffX) const;
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -207,6 +218,9 @@ private:
 
 	// 経過時間
 	float walkTimer_ = 0.0f;
+
+	//// 計画した足場へのジャンプ中か
+	//bool isPlannedPlatformJump_ = false;
 
 	/*--------------- 通常状態の地形移動 ---------------*/
 	// 接地しているか
@@ -256,8 +270,31 @@ private:
 	// 着地後に再判断するまでの時間
 	static constexpr float kChaseLandingWaitTime = 0.35f;
 
-	//// プレイヤーへ直接ジャンプできる最大高低差
-	//static constexpr float kMaxDirectJumpHeight = 8.5f;
+	// 追跡経路を決めた時点のプレイヤーのY座標
+	float plannedTargetY_ = 0.0f;
+
+	// 1マスが2.0なので、その半分
+	static constexpr float kChaseReplanHeightThreshold = 1.0f;
+
+	//// 直前に離れた足場の高さ
+	//float previousPlatformTopY_ = 0.0f;
+
+	//// 直前の足場を記録しているか
+	//bool hasPreviousPlatform_ = false;
+
+	//// 同じ足場へ戻る経路を避ける時間
+	//float platformRouteLockTimer_ = 0.0f;
+
+	//static constexpr float kPlatformRouteLockTime = 1.5f;
+
+	// 乗り移る足場上の着地目標X座標
+	float targetPlatformLandingX_ = 0.0f;
+
+	// 着地目標Xへ到着したとみなす距離
+	static constexpr float kPlatformLandingArrivalDistance = 0.05f;
+
+	// 目的足場へ着地できたとみなす高さの誤差
+	static constexpr float kPlatformLandingHeightTolerance = 0.25f;
 
 	/*--------------- 追跡ジャンプ ---------------*/
 	// ジャンプ初速
@@ -272,8 +309,8 @@ private:
 	// 足場へ乗り移る際に予定しているジャンプ方向
 	float plannedJumpDirection_ = 0.0f;
 
-	// 前方の壁を調べる距離
-	static constexpr float kWallCheckDistance = 0.20f;
+	//// 前方の壁を調べる距離
+	//static constexpr float kWallCheckDistance = 0.20f;
 
 	// 次のジャンプまでの待ち時間
 	float chaseJumpCooldownTimer_ = 0.0f;
@@ -307,6 +344,19 @@ private:
 
 	// 足場上面を越えたと判断する余白
 	static constexpr float kPlatformTopClearance = 0.08f;
+
+	/*--------------- 追跡落下 ---------------*/
+	// プレイヤーがこれ以上下にいる場合、足場から降りる
+	static constexpr float kDropHeightThreshold = 1.0f;
+
+	// 足場から確実に外れるための余白
+	static constexpr float kDropEdgeExtraMargin = 0.15f;
+
+	// 足場から降りる目標X座標
+	float dropTargetX_ = 0.0f;
+
+	// 足場から降りる方向
+	float dropDirection_ = 0.0f;
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP

@@ -42,7 +42,7 @@ public:
 	static inline const float kBlockHeight = 2.0f;
 
 	// ブロックの個数
-	static inline const uint32_t kNumBlockVirchical = 20;
+	static inline const uint32_t kNumBlockVertical = 20;
 	static inline const uint32_t kNumBlockHorizontal = 100;
 
 	// マップチップデータのリセット

@@ -252,20 +252,6 @@ void GameScene::Update() {
 			return false;
 		});
 
-		//// 盾敵の更新
-		// for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
-		//	shieldEnemy->Update();
-		// }
-
-		//// デスフラグの立った敵を削除
-		// shieldEnemies_.remove_if([](ShieldEnemy* shieldEnemy) {
-		//	if (shieldEnemy->GetIsDead()) {
-		//		delete shieldEnemy;
-		//		return true;
-		//	}
-		//	return false;
-		// });
-
 		// ヒットエフェクトの更新
 		for (HitEffect* hitEffect : hitEffects_) {
 			hitEffect->UpDate();
@@ -334,11 +320,6 @@ void GameScene::Update() {
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
 		}
-
-		//// 盾敵の更新
-		// for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
-		//	shieldEnemy->Update();
-		// }
 
 		// ヒットエフェクトの更新
 		for (HitEffect* hitEffect : hitEffects_) {
@@ -470,7 +451,7 @@ void GameScene::CreateHitEffect(Vector3 pos, HitEffectType type) {
 /*-------------------- 表示ブロックの生成 --------------------*/
 void GameScene::GenerateBlocks() {
 	// 要素数
-	uint32_t kNumBlockVirtical = MapChipField::kNumBlockVirchical;
+	uint32_t kNumBlockVirtical = MapChipField::kNumBlockVertical;
 	uint32_t kNumBlockHorizontal = MapChipField::kNumBlockHorizontal;
 
 	// 要素数を更新する
