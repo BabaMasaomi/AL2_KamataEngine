@@ -23,6 +23,15 @@ enum class BehaviorEnemy {
 	kUnknown,
 };
 
+// 追跡ジャンプの状態
+enum class ChaseJumpState {
+	kDirectChase,   // 通常追跡
+	kMoveToTakeoff, // 固定した踏切位置へ移動
+	kTakeoffPause,  // 踏切位置で一度停止
+	kJumping,       // ジャンプ中
+	kLandingWait,   // 着地後の待機
+};
+
 // マップとの当たり判定情報
 struct EnemyMapCollisionInfo {
 	bool hitLeft = false;
@@ -146,9 +155,19 @@ private:
 	// プレイヤーの位置から移動方向を決める
 	void UpdateChaseDirection();
 
+	// 追跡中のジャンプ判断
+	void TryChaseJump();
+
+	// 進行方向に壁があるか
+	bool IsWallAhead() const;
+
 	// 横移動に地形判定を適用する
 	// 壁に衝突した場合はtrue
 	bool MoveHorizontalWithMap(float movementX);
+
+	// 上方の足場から踏切位置を取得
+	// 見つかった場合はtrue
+	bool FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, float& platformTopY) const;
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -194,7 +213,7 @@ private:
 	bool isOnGround_ = false;
 
 	// 重力加速度
-	static constexpr float kGravityAcceleration = 0.09f;
+	static constexpr float kGravityAcceleration = 0.07f;
 
 	// 最大落下速度
 	static constexpr float kMaxFallSpeed = 0.75f;
@@ -216,12 +235,78 @@ private:
 	static constexpr float kTurnTime = 0.10f;
 
 	/*--------------- プレイヤー追跡 ---------------*/
-
 	// 追跡対象
 	Player* target_ = nullptr;
 
 	// プレイヤーとのX座標差がこの値以下なら停止
 	static constexpr float kChaseStopDistance = 0.15f;
+
+	// 空中でプレイヤーを追う横移動速度
+	static constexpr float kAirChaseMoveSpeed = 0.08f;
+
+	// 現在の追跡ジャンプ状態
+	ChaseJumpState chaseJumpState_ = ChaseJumpState::kDirectChase;
+
+	// ジャンプ中に固定する横方向
+	float chaseJumpDirection_ = 0.0f;
+
+	// 着地後の待機時間
+	float chaseLandingWaitTimer_ = 0.0f;
+
+	// 着地後に再判断するまでの時間
+	static constexpr float kChaseLandingWaitTime = 0.35f;
+
+	//// プレイヤーへ直接ジャンプできる最大高低差
+	//static constexpr float kMaxDirectJumpHeight = 8.5f;
+
+	/*--------------- 追跡ジャンプ ---------------*/
+	// ジャンプ初速
+	static constexpr float kChaseJumpSpeed = 1.25f;
+
+	// プレイヤーがこの高さ以上にいる場合にジャンプを検討
+	static constexpr float kJumpHeightThreshold = 1.0f;
+
+	//// 高い足場へ向けてジャンプを始める最大横距離
+	//static constexpr float kJumpHorizontalRange = 16.0f;
+
+	// 足場へ乗り移る際に予定しているジャンプ方向
+	float plannedJumpDirection_ = 0.0f;
+
+	// 前方の壁を調べる距離
+	static constexpr float kWallCheckDistance = 0.20f;
+
+	// 次のジャンプまでの待ち時間
+	float chaseJumpCooldownTimer_ = 0.0f;
+
+	// ジャンプ後の待ち時間
+	static constexpr float kChaseJumpCooldownTime = 0.75f;
+
+	// 上方の足場を調べるマップチップ数
+	static constexpr uint32_t kOverheadSearchRows = 5;
+
+	// 固定した踏切位置
+	float takeoffTargetX_ = 0.0f;
+
+	// 踏切位置で停止する時間
+	float takeoffPauseTimer_ = 0.0f;
+
+	// ジャンプ前の停止時間
+	static constexpr float kTakeoffPauseTime = 0.20f;
+
+	// 踏切位置へ到着したとみなす距離
+	static constexpr float kTakeoffArrivalDistance = 0.06f;
+
+	// 乗り移る足場の上面Y座標
+	float targetPlatformTopY_ = 0.0f;
+
+	// 敵の下端が足場上面を越えたか
+	bool hasClearedTargetPlatformTop_ = false;
+
+	// 足場へ乗り移る際の横速度
+	static constexpr float kPlatformTransferSpeed = 0.20f;
+
+	// 足場上面を越えたと判断する余白
+	static constexpr float kPlatformTopClearance = 0.08f;
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP
@@ -294,21 +379,6 @@ private:
 
 	// 吹き飛び経過時間
 	float blownAwayTimer_ = 0.0f;
-
-	//// 横方向の初速
-	//static constexpr float kBlownAwaySpeedX = 0.75f;
-
-	//// 上方向の初速
-	//static constexpr float kBlownAwaySpeedY = 0.55f;
-
-	//// 吹き飛び中の重力
-	//static constexpr float kBlownAwayGravity = 0.04f;
-
-	//// 最大落下速度
-	//static constexpr float kBlownAwayMaxFallSpeed = 0.8f;
-
-	//// 仮の吹き飛び継続時間
-	//static constexpr float kBlownAwayTime = 1.2f;
 
 	// 初速
 	static constexpr float kBlownAwaySpeed = 0.75f;

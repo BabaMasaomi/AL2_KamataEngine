@@ -74,6 +74,19 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 	behaviorRequest_ = BehaviorEnemy::kUnknown;
 
 	isOnGround_ = false;
+
+	chaseJumpCooldownTimer_ = 0.0f;
+
+	chaseJumpState_ = ChaseJumpState::kDirectChase;
+
+	chaseJumpDirection_ = 0.0f;
+	chaseLandingWaitTimer_ = 0.0f;
+	chaseJumpCooldownTimer_ = 0.0f;
+
+	takeoffTargetX_ = worldTransform_.translation_.x;
+
+	takeoffPauseTimer_ = 0.0f;
+	chaseJumpDirection_ = 0.0f;
 }
 
 /// <summary>
@@ -143,14 +156,27 @@ void Enemy::Update() {
 // 横移動方向に応じた向きの更新
 void Enemy::UpdateFacingDirection() {
 	/*========== 移動方向の変化を確認 ==========*/
-
 	EnemyLRDirection newDirection = lrDirection_;
 
-	if (velocity_.x > 0.0f) {
-		newDirection = EnemyLRDirection::kRight;
+	// ジャンプ前の停止中とジャンプ中は、
+	// 足場へ乗り移る方向を向く
+	if (chaseJumpState_ == ChaseJumpState::kTakeoffPause || chaseJumpState_ == ChaseJumpState::kJumping) {
 
-	} else if (velocity_.x < 0.0f) {
-		newDirection = EnemyLRDirection::kLeft;
+		if (chaseJumpDirection_ > 0.0f || plannedJumpDirection_ > 0.0f) {
+			newDirection = EnemyLRDirection::kRight;
+
+		} else if (chaseJumpDirection_ < 0.0f || plannedJumpDirection_ < 0.0f) {
+			newDirection = EnemyLRDirection::kLeft;
+		}
+
+	} else {
+		// 通常時は移動方向を向く
+		if (velocity_.x > 0.0f) {
+			newDirection = EnemyLRDirection::kRight;
+
+		} else if (velocity_.x < 0.0f) {
+			newDirection = EnemyLRDirection::kLeft;
+		}
 	}
 
 	// 向きが変化した瞬間に旋回開始
@@ -213,34 +239,75 @@ void Enemy::UpdateRootMapMovement() {
 	const float halfHeight = kHeight / 2.0f;
 
 	/*========== 重力 ==========*/
-
 	velocity_.y -= kGravityAcceleration;
 	velocity_.y = std::max(velocity_.y, -kMaxFallSpeed);
 
-	/*========== 横方向の移動と壁判定 ==========*/
+	/*========== 追跡ジャンプ ==========*/
+	TryChaseJump();
 
+	/*========== 横方向の移動と壁判定 ==========*/
 	float movementX = 0.0f;
 
-	// ノックバック中は通常歩行を止める
 	if (!isHitKnockBack_) {
 		movementX = velocity_.x;
 	}
 
 	bool hitWall = MoveHorizontalWithMap(movementX);
 
-	// 壁に当たったら、その場で横移動を停止
 	if (hitWall) {
 		velocity_.x = 0.0f;
 	}
 
-	/*========== 縦方向の移動と床判定 ==========*/
-
+	/*========== 縦方向の移動と床・天井判定 ==========*/
 	float nextY = worldTransform_.translation_.y + velocity_.y;
 
 	isOnGround_ = false;
 
-	// 現在は落下方向だけを判定
-	if (velocity_.y <= 0.0f) {
+	if (velocity_.y > 0.0f) {
+		/*========== 天井判定 ==========*/
+
+		Vector3 checkPositions[] = {
+		    {
+             worldTransform_.translation_.x - halfWidth + kRootMapMargin,
+             nextY + halfHeight,
+             worldTransform_.translation_.z,
+		     },
+		    {
+             worldTransform_.translation_.x + halfWidth - kRootMapMargin,
+             nextY + halfHeight,
+             worldTransform_.translation_.z,
+		     },
+		};
+
+		bool hitCeiling = false;
+		float resolvedY = nextY;
+
+		for (const Vector3& position : checkPositions) {
+
+			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+
+			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+				continue;
+			}
+
+			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+
+			// 敵の上端を天井の下面へ合わせる
+			float candidateY = rect.bottom - halfHeight - kRootMapMargin;
+
+			resolvedY = std::min(resolvedY, candidateY);
+
+			hitCeiling = true;
+		}
+
+		if (hitCeiling) {
+			nextY = resolvedY;
+			velocity_.y = 0.0f;
+		}
+
+	} else {
+		/*========== 床判定 ==========*/
+
 		Vector3 checkPositions[] = {
 		    {
              worldTransform_.translation_.x - halfWidth + kRootMapMargin,
@@ -258,6 +325,7 @@ void Enemy::UpdateRootMapMovement() {
 		float resolvedY = nextY;
 
 		for (const Vector3& position : checkPositions) {
+
 			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
 
 			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
@@ -286,8 +354,8 @@ void Enemy::UpdateRootMapMovement() {
 
 // プレイヤーの位置から移動方向を決める
 void Enemy::UpdateChaseDirection() {
-	// 追跡対象がなければ現在の移動方向を維持
 	if (!target_) {
+		velocity_.x = 0.0f;
 		return;
 	}
 
@@ -295,22 +363,235 @@ void Enemy::UpdateChaseDirection() {
 
 	float differenceX = playerPos.x - worldTransform_.translation_.x;
 
-	// プレイヤーが右側にいる
+	float differenceY = playerPos.y - worldTransform_.translation_.y;
+
+	/*========== 固定した踏切位置へ移動 ==========*/
+
+	if (chaseJumpState_ == ChaseJumpState::kMoveToTakeoff) {
+
+		float differenceToTakeoff = takeoffTargetX_ - worldTransform_.translation_.x;
+
+		// 踏切位置へ到着
+		if (std::abs(differenceToTakeoff) <= kTakeoffArrivalDistance) {
+
+			velocity_.x = 0.0f;
+
+			chaseJumpState_ = ChaseJumpState::kTakeoffPause;
+
+			takeoffPauseTimer_ = kTakeoffPauseTime;
+
+			return;
+		}
+
+		// 移動量が残り距離を超えないようにする
+		if (differenceToTakeoff > 0.0f) {
+			velocity_.x = std::min(kMoveSpeed, differenceToTakeoff);
+
+		} else {
+			velocity_.x = std::max(-kMoveSpeed, differenceToTakeoff);
+		}
+
+		return;
+	}
+
+	/*========== 踏切位置で停止 ==========*/
+
+	if (chaseJumpState_ == ChaseJumpState::kTakeoffPause) {
+
+		velocity_.x = 0.0f;
+		return;
+	}
+
+	/*========== ジャンプ中 ==========*/
+	if (chaseJumpState_ == ChaseJumpState::kJumping) {
+
+		const float halfHeight = kHeight / 2.0f;
+
+		float enemyBottom = worldTransform_.translation_.y - halfHeight;
+
+		/*
+		 * 計画した足場ジャンプの場合、
+		 * 敵の下端が足場上面を越えるまでは
+		 * 横移動を行わない。
+		 */
+		if (!hasClearedTargetPlatformTop_) {
+			if (enemyBottom >= targetPlatformTopY_ + kPlatformTopClearance) {
+
+				hasClearedTargetPlatformTop_ = true;
+			}
+		}
+
+		if (hasClearedTargetPlatformTop_) {
+			// 足場上面を越えたので内側へ移動
+			velocity_.x = chaseJumpDirection_ * kPlatformTransferSpeed;
+
+		} else {
+			// 足場外側で垂直に上昇
+			velocity_.x = 0.0f;
+		}
+
+		return;
+	}
+
+	/*========== 着地後待機 ==========*/
+
+	if (chaseJumpState_ == ChaseJumpState::kLandingWait) {
+
+		velocity_.x = 0.0f;
+		return;
+	}
+
+	/*========== 通常追跡 ==========*/
+
+	// 接地したプレイヤーが高所にいる場合、
+	// 頭上の足場の踏切位置を探す
+	if (isOnGround_ && target_->IsOnGround() && differenceY > kJumpHeightThreshold) {
+
+		float foundTakeoffX = 0.0f;
+		float foundJumpDirection = 0.0f;
+		float foundPlatformTopY = 0.0f;
+
+		bool foundPlatform = FindOverheadPlatformTakeoff(foundTakeoffX, foundJumpDirection, foundPlatformTopY);
+
+		if (foundPlatform) {
+			takeoffTargetX_ = foundTakeoffX;
+
+			plannedJumpDirection_ = foundJumpDirection;
+
+			targetPlatformTopY_ = foundPlatformTopY;
+
+			hasClearedTargetPlatformTop_ = false;
+
+			chaseJumpState_ = ChaseJumpState::kMoveToTakeoff;
+
+			float differenceToTakeoff = takeoffTargetX_ - worldTransform_.translation_.x;
+
+			velocity_.x = differenceToTakeoff >= 0.0f ? kMoveSpeed : -kMoveSpeed;
+
+			return;
+		}
+	}
+
+	/*========== プレイヤーのX位置を直接追跡 ==========*/
+
+	float chaseSpeed = isOnGround_ ? kMoveSpeed : kAirChaseMoveSpeed;
+
 	if (differenceX > kChaseStopDistance) {
 
-		velocity_.x = kMoveSpeed;
+		velocity_.x = chaseSpeed;
 		return;
 	}
 
-	// プレイヤーが左側にいる
 	if (differenceX < -kChaseStopDistance) {
 
-		velocity_.x = -kMoveSpeed;
+		velocity_.x = -chaseSpeed;
 		return;
 	}
 
-	// X座標がほぼ一致している場合は停止
 	velocity_.x = 0.0f;
+}
+
+// 追跡中のジャンプ判断
+void Enemy::TryChaseJump() {
+	// 空中、クールタイム中、または追跡対象がいない場合はジャンプしない
+	if (!isOnGround_ || chaseJumpCooldownTimer_ > 0.0f || target_ == nullptr) {
+		return;
+	}
+
+	// 足場の外側まで移動中はジャンプしない
+	if (chaseJumpState_ == ChaseJumpState::kMoveToTakeoff) {
+		return;
+	}
+
+	// 足場の外側へ到着し、一時停止した後の乗り移りジャンプ
+	if (chaseJumpState_ == ChaseJumpState::kTakeoffPause) {
+		if (takeoffPauseTimer_ > 0.0f) {
+			return;
+		}
+
+		chaseJumpDirection_ = plannedJumpDirection_;
+
+		// 最初は真上にジャンプする
+		velocity_.x = 0.0f;
+		velocity_.y = kChaseJumpSpeed;
+
+		isOnGround_ = false;
+		hasClearedTargetPlatformTop_ = false;
+		chaseJumpState_ = ChaseJumpState::kJumping;
+		chaseJumpCooldownTimer_ = kChaseJumpCooldownTime;
+		return;
+	}
+
+	// 着地後の待機中はジャンプしない
+	if (chaseJumpState_ == ChaseJumpState::kLandingWait) {
+		return;
+	}
+
+	// 通常追跡中は、正面に壁がある場合だけジャンプする
+	if (!IsWallAhead()) {
+		return;
+	}
+
+	// 壁を越えるジャンプの方向は現在の移動方向に合わせる
+	if (velocity_.x > 0.0f) {
+		chaseJumpDirection_ = 1.0f;
+	} else if (velocity_.x < 0.0f) {
+		chaseJumpDirection_ = -1.0f;
+	} else {
+		return;
+	}
+
+	velocity_.x = chaseJumpDirection_ * kAirChaseMoveSpeed;
+	velocity_.y = kChaseJumpSpeed;
+
+	isOnGround_ = false;
+
+	// 壁越えジャンプでは足場上端を基準にした制御を使用しない
+	hasClearedTargetPlatformTop_ = true;
+
+	chaseJumpState_ = ChaseJumpState::kJumping;
+	chaseJumpCooldownTimer_ = kChaseJumpCooldownTime;
+}
+
+// 進行方向に壁があるか
+bool Enemy::IsWallAhead() const {
+	if (!mapChipField_) {
+		return false;
+	}
+
+	// 停止中は調べる方向がない
+	if (std::abs(velocity_.x) < 0.001f) {
+		return false;
+	}
+
+	const float halfWidth = kWidth / 2.0f;
+	const float halfHeight = kHeight / 2.0f;
+
+	float direction = velocity_.x > 0.0f ? 1.0f : -1.0f;
+
+	float checkX = worldTransform_.translation_.x + direction * (halfWidth + kWallCheckDistance);
+
+	// 足元寄りと中央付近の2点を確認
+	Vector3 checkPositions[] = {
+	    {
+         checkX, worldTransform_.translation_.y - halfHeight + 0.20f,
+         worldTransform_.translation_.z,
+	     },
+	    {
+         checkX,      worldTransform_.translation_.y,
+         worldTransform_.translation_.z,
+	     },
+	};
+
+	for (const Vector3& position : checkPositions) {
+		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+
+		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) == MapChipType::kBlock) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 // 横移動に地形判定を適用する
@@ -399,6 +680,87 @@ bool Enemy::MoveHorizontalWithMap(float movementX) {
 	return hitWall;
 }
 
+// 上方の足場から踏切位置を取得
+// 見つかった場合はtrue
+bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, float& platformTopY) const {
+
+	if (!mapChipField_ || !target_) {
+		return false;
+	}
+
+	// 敵の高さを基準に、上方向を調べる
+	MapChipField::IndexSet enemyIndex = mapChipField_->GetMapChipIndexSetByPosition(worldTransform_.translation_);
+
+	// X方向はプレイヤーのいる列を使用する
+	MapChipField::IndexSet playerIndex = mapChipField_->GetMapChipIndexSetByPosition(target_->GetWorldPos());
+
+	for (uint32_t step = 1; step <= kOverheadSearchRows; ++step) {
+
+		if (enemyIndex.yIndex < step) {
+			break;
+		}
+
+		uint32_t checkY = enemyIndex.yIndex - step;
+
+		// プレイヤーがいるX列に足場があるか確認
+		if (mapChipField_->GetMapChipTypeByIndex(playerIndex.xIndex, checkY) != MapChipType::kBlock) {
+			continue;
+		}
+
+		// 見つけたブロックから足場の左右端を探す
+		uint32_t leftIndex = playerIndex.xIndex;
+		uint32_t rightIndex = playerIndex.xIndex;
+
+		while (leftIndex > 0) {
+			if (mapChipField_->GetMapChipTypeByIndex(leftIndex - 1, checkY) != MapChipType::kBlock) {
+				break;
+			}
+
+			--leftIndex;
+		}
+
+		while (rightIndex + 1 < MapChipField::kNumBlockHorizontal) {
+
+			if (mapChipField_->GetMapChipTypeByIndex(rightIndex + 1, checkY) != MapChipType::kBlock) {
+				break;
+			}
+
+			++rightIndex;
+		}
+
+		MapChipField::Rect leftRect = mapChipField_->GetRectByIndex(leftIndex, checkY);
+
+		MapChipField::Rect rightRect = mapChipField_->GetRectByIndex(rightIndex, checkY);
+
+		platformTopY = leftRect.top;
+
+		// 足場の外側に、敵1体分の余裕を取る
+		const float takeoffMargin = kWidth / 2.0f + kRootMapMargin;
+
+		float leftTakeoffX = leftRect.left - takeoffMargin;
+
+		float rightTakeoffX = rightRect.right + takeoffMargin;
+
+		float distanceToLeft = std::abs(worldTransform_.translation_.x - leftTakeoffX);
+
+		float distanceToRight = std::abs(worldTransform_.translation_.x - rightTakeoffX);
+
+		if (distanceToLeft <= distanceToRight) {
+			// 左端から足場の右方向へ入る
+			takeoffX = leftTakeoffX;
+			jumpDirection = 1.0f;
+		} else {
+			// 右端から足場の左方向へ入る
+			takeoffX = rightTakeoffX;
+			jumpDirection = -1.0f;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 // 通常行動初期化
 void Enemy::BehaviorRootInitialize() {
 	isCollisionDisenabled_ = false;
@@ -422,22 +784,66 @@ void Enemy::BehaviorRootInitialize() {
 
 	// 復帰時に不要な旋回を発生させない
 	turnTimer_ = 0.0f;
+
+	// 復帰時に追跡ジャンプをすぐに行わないようにする
+	chaseJumpCooldownTimer_ = std::max(chaseJumpCooldownTimer_, 0.20f);
+
+	chaseJumpState_ = ChaseJumpState::kDirectChase;
+
+	chaseJumpDirection_ = 0.0f;
+	chaseLandingWaitTimer_ = 0.0f;
 }
 
 // 通常行動更新
 void Enemy::BehaviorRootUpdate() {
-	// ノックバック中は追跡方向を更新しない
+	const float deltaTime = 1.0f / 60.0f;
+
+	/*========== ジャンプ状態の更新 ==========*/
+	// 前フレームで着地していた場合
+	if (chaseJumpState_ == ChaseJumpState::kJumping && isOnGround_) {
+
+		chaseJumpState_ = ChaseJumpState::kLandingWait;
+
+		chaseLandingWaitTimer_ = kChaseLandingWaitTime;
+
+		velocity_.x = 0.0f;
+	}
+
+	if (chaseJumpState_ == ChaseJumpState::kLandingWait) {
+
+		chaseLandingWaitTimer_ -= deltaTime;
+
+		if (chaseLandingWaitTimer_ <= 0.0f) {
+			chaseLandingWaitTimer_ = 0.0f;
+
+			chaseJumpState_ = ChaseJumpState::kDirectChase;
+		}
+	}
+
+	/*========== 踏切位置での停止時間 ==========*/
+	if (chaseJumpState_ == ChaseJumpState::kTakeoffPause) {
+
+		takeoffPauseTimer_ -= deltaTime;
+
+		takeoffPauseTimer_ = std::max(takeoffPauseTimer_, 0.0f);
+	}
+
+	/*========== クールタイム ==========*/
+	if (chaseJumpCooldownTimer_ > 0.0f) {
+		chaseJumpCooldownTimer_ -= deltaTime;
+
+		chaseJumpCooldownTimer_ = std::max(chaseJumpCooldownTimer_, 0.0f);
+	}
+
+	/*========== 既存の追跡処理 ==========*/
 	if (!isHitKnockBack_) {
-		// プレイヤーの位置から移動方向を決定
 		UpdateChaseDirection();
 	}
 
-	// 決定した移動方向へ向きを変える
 	UpdateFacingDirection();
-
-	// 重力と地形判定を含む通常移動
 	UpdateRootMapMovement();
 
+	/*========== アニメーション ==========*/
 	// 歩行中だけアニメーションさせる
 	if (!isHitKnockBack_ && std::abs(velocity_.x) > 0.001f) {
 
@@ -1193,7 +1599,5 @@ bool Enemy::ApplyHpDamage(int32_t damage) {
 
 	return false;
 }
-
-
 
 void Enemy::SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }

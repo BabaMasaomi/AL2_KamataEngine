@@ -159,6 +159,9 @@ public:
 	/// <param name="enemy">敵の情報</param>
 	void OnCollisionShieldEnemy(ShieldEnemy* enemy);
 
+	// 接地しているか
+	bool IsOnGround() const { return onGround_; }
+
 	// 攻撃中かどうかを判定する
 	bool IsAttack();
 
