@@ -348,7 +348,7 @@ private:
 	static constexpr float kAttackActiveTime = 0.09f;
 
 	// 後隙
-	static constexpr float kAttackRecoveryTime = 0.15f;
+	static constexpr float kAttackRecoveryTime = 0.10f;
 
 	// 踏み込み速度
 	static constexpr float kAttackStepSpeed = 0.80f;
@@ -358,7 +358,7 @@ private:
 	static constexpr float kBatAngleEnd = 100.0f;
 
 	// 攻撃判定の大きさ
-	static constexpr float kAttackWidth = 4.4f;
+	static constexpr float kAttackWidth = 4.6f;
 	static constexpr float kAttackHeight = 2.6f;
 
 	// プレイヤー中心から攻撃判定までの距離

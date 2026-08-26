@@ -68,6 +68,21 @@ GameScene::~GameScene() {
 		delete timeDigitSprite;
 	}
 
+	// HPの解放
+	for (Sprite* hpDigitSprite : hpDigitSprites_) {
+
+		delete hpDigitSprite;
+	}
+
+	hpDigitSprites_.clear();
+
+	// アイコン類を解放
+	delete scoreIconSprite_;
+	scoreIconSprite_ = nullptr;
+
+	delete timeIconSprite_;
+	timeIconSprite_ = nullptr;
+
 	timeDigitSprites_.fill(nullptr);
 	delete fade_; // フェードの解放
 }
@@ -200,6 +215,9 @@ void GameScene::Initialize() {
 	// 残り時間表示の初期化
 	InitializeTimeDisplay();
 
+	// HP表示の初期化
+	InitializeHpDisplay();
+
 	// チュートリアルガイドの初期化
 	InitializeTutorialGuides();
 
@@ -212,6 +230,10 @@ void GameScene::Initialize() {
 /*-------------------- 更新 --------------------*/
 void GameScene::Update() {
 	const float deltaTime = 1.0f / 60.0f;
+
+	if (player_) {
+		UpdateHpDisplay();
+	}
 
 	// ヒットストップ中
 	if (phase_ == Phase::kPlay && hitStopTimer_ > 0.0f) {
@@ -603,19 +625,20 @@ void GameScene::Draw() {
 
 	Model::PostDraw();
 
-
 	/*========== 2Dスプライト描画 ==========*/
 	Sprite::PreDraw();
 
 	// チュートリアル操作ガイド
 	DrawTutorialGuide();
 
-	// 本プレイ中だけス表示
-	if (isMainGameStarted_) {
-		// 左上に残り時間
-		DrawRemainingTime();
+	// HPは左上へ表示
+	if (phase_ == Phase::kPlay) {
+		DrawHp();
+	}
 
-		// 右上にスコア
+	// 本プレイ開始後の右上UI
+	if (isMainGameStarted_) {
+		DrawRemainingTime();
 		DrawScore();
 	}
 
@@ -1666,6 +1689,88 @@ void GameScene::DrawTutorialGuide() {
 	}
 }
 
+void GameScene::InitializeHpDisplay() {
+	hpDigitSprites_.clear();
+
+	for (size_t i = 0; i < kMaxHpDigits; ++i) {
+
+		float positionX = kHpLeftX + static_cast<float>(i) * kHpDigitSpacing;
+
+		Sprite* hpDigitSprite = Sprite::Create(
+		    scoreDigitTextures_[0], {
+		                                positionX,
+		                                kHpTopY,
+		                            });
+
+		hpDigitSprite->SetAnchorPoint({
+		    0.5f,
+		    0.5f,
+		});
+
+		hpDigitSprite->SetSize({
+		    kHpDigitWidth,
+		    kHpDigitHeight,
+		});
+
+		hpDigitSprites_.push_back(hpDigitSprite);
+	}
+
+	displayedHp_ = -1;
+	UpdateHpDisplay();
+}
+
+//-------------------- HP表示の更新 --------------------//
+void GameScene::UpdateHpDisplay() {
+	if (!player_) {
+		return;
+	}
+
+	int32_t currentHp = (std::max)(player_->GetHp(), 0);
+
+	if (currentHp == displayedHp_) {
+		return;
+	}
+
+	displayedHp_ = currentHp;
+
+	std::string hpText = std::to_string(currentHp);
+
+	if (hpText.size() > kMaxHpDigits) {
+		hpText = hpText.substr(hpText.size() - kMaxHpDigits);
+	}
+
+	hpDigitCount_ = hpText.size();
+
+	for (size_t i = 0; i < hpDigitCount_; ++i) {
+
+		uint32_t digit = static_cast<uint32_t>(hpText[i] - '0');
+
+		hpDigitSprites_[i]->SetTextureHandle(scoreDigitTextures_[digit]);
+
+		float positionX = kHpLeftX + static_cast<float>(i) * kHpDigitSpacing;
+
+		hpDigitSprites_[i]->SetPosition({
+		    positionX,
+		    kHpTopY,
+		});
+	}
+}
+
+//-------------------- HP表示の描画 --------------------//
+void GameScene::DrawHp() {
+	for (size_t i = 0; i < hpDigitCount_; ++i) {
+
+		if (i >= hpDigitSprites_.size()) {
+			break;
+		}
+
+		if (hpDigitSprites_[i]) {
+			hpDigitSprites_[i]->Draw();
+		}
+	}
+}
+
+//-------------------- スコア表示の初期化 --------------------//
 void GameScene::InitializeScoreDisplay() {
 	// カウントダウン用画像の1～3を流用
 	scoreDigitTextures_[0] = TextureManager::Load("count0.png");
@@ -1690,6 +1795,25 @@ void GameScene::InitializeScoreDisplay() {
 
 	scoreDigitSprites_.clear();
 
+	uint32_t scoreIconTexture = TextureManager::Load("Score_Bat.png");
+
+	scoreIconSprite_ = Sprite::Create(
+	    scoreIconTexture, {
+	                          1100.0f,
+	                          kScoreTopY,
+	                      });
+
+	scoreIconSprite_->SetAnchorPoint({
+	    0.5f,
+	    0.5f,
+	});
+
+	scoreIconSprite_->SetSize({
+	    kScoreIconSize,
+	    kScoreIconSize,
+	});
+
+	// スコア表示用の桁数分のスプライトを生成
 	for (size_t i = 0; i < kMaxScoreDigits; ++i) {
 		Sprite* digitSprite = Sprite::Create(scoreDigitTextures_[0], {kScoreRightX, kScoreTopY});
 
@@ -1747,9 +1871,27 @@ void GameScene::UpdateScoreDisplay() {
 		    kScoreDigitHeight,
 		});
 	}
+
+	if (scoreIconSprite_ && scoreDigitCount_ > 0) {
+
+		// 一番左の数字の中心位置
+		float leftmostDigitX = kScoreRightX - static_cast<float>(scoreDigitCount_ - 1) * kScoreDigitSpacing;
+
+		// 数字列のすぐ左へアイコンを置く
+		float iconPositionX = leftmostDigitX - kScoreDigitWidth * 0.5f - kScoreIconMargin - kScoreIconSize * 0.5f;
+
+		scoreIconSprite_->SetPosition({
+		    iconPositionX,
+		    kScoreTopY,
+		});
+	}
 }
 
 void GameScene::DrawScore() {
+	if (scoreIconSprite_) {
+		scoreIconSprite_->Draw();
+	}
+
 	for (size_t i = 0; i < scoreDigitCount_; ++i) {
 
 		if (i >= scoreDigitSprites_.size()) {
@@ -1896,11 +2038,10 @@ void GameScene::ChangeCountdownState(CountdownState state) {
 	}
 }
 
-
 void GameScene::InitializeTimeDisplay() {
 	for (size_t i = 0; i < timeDigitSprites_.size(); ++i) {
 
-		float positionX = kTimeLeftX + static_cast<float>(i) * kTimeDigitSpacing;
+		float positionX = kTimeRightX - static_cast<float>(timeDigitSprites_.size() - 1 - i) * kTimeDigitSpacing;
 
 		timeDigitSprites_[i] = Sprite::Create(
 		    scoreDigitTextures_[0], {
@@ -1919,11 +2060,32 @@ void GameScene::InitializeTimeDisplay() {
 		});
 	}
 
+	uint32_t timeIconTexture = TextureManager::Load("Time_Bat.png");
+
+	float leftmostTimeDigitX = kTimeRightX - static_cast<float>(timeDigitSprites_.size() - 1) * kTimeDigitSpacing;
+
+	float timeIconX = leftmostTimeDigitX - kTimeDigitWidth * 0.5f - kTimeIconMargin - kTimeIconSize * 0.5f;
+
+	timeIconSprite_ = Sprite::Create(
+	    timeIconTexture, {
+	                         timeIconX,
+	                         kTimeTopY,
+	                     });
+
+	timeIconSprite_->SetAnchorPoint({
+	    0.5f,
+	    0.5f,
+	});
+
+	timeIconSprite_->SetSize({
+	    kTimeIconSize,
+	    kTimeIconSize,
+	});
+
 	displayedRemainingTime_ = -1;
 
 	UpdateTimeDisplay();
 }
-
 
 void GameScene::UpdateTimeDisplay() {
 	/*
@@ -1954,6 +2116,10 @@ void GameScene::UpdateTimeDisplay() {
 }
 
 void GameScene::DrawRemainingTime() {
+	if (timeIconSprite_) {
+		timeIconSprite_->Draw();
+	}
+
 	for (Sprite* timeDigitSprite : timeDigitSprites_) {
 
 		if (timeDigitSprite) {

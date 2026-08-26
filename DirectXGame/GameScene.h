@@ -225,6 +225,39 @@ private:
 	// 描画
 	void DrawTutorialGuide();
 
+	/*-------------------- HP表示 --------------------*/
+	// HPの数字スプライト
+	std::vector<KamataEngine::Sprite*> hpDigitSprites_;
+
+	// 現在表示しているHPの桁数
+	size_t hpDigitCount_ = 1;
+
+	// 前回表示したHP
+	int32_t displayedHp_ = -1;
+
+	// 将来の複数桁化に備えた最大桁数
+	static constexpr size_t kMaxHpDigits = 3;
+
+	// HP数字の大きさ
+	static constexpr float kHpDigitWidth = 48.0f;
+	static constexpr float kHpDigitHeight = 48.0f;
+
+	// 数字同士の間隔
+	static constexpr float kHpDigitSpacing = 44.0f;
+
+	// HP表示の左端
+	static constexpr float kHpLeftX = 50.0f;
+	static constexpr float kHpTopY = 50.0f;
+
+	// 初期化
+	void InitializeHpDisplay();
+
+	// 更新
+	void UpdateHpDisplay();
+
+	// 描画
+	void DrawHp();
+
 	/*-------------------- スコア表示 --------------------*/
 	// 0～9の数字テクスチャ
 	std::array<uint32_t, 10> scoreDigitTextures_{};
@@ -252,7 +285,16 @@ private:
 	static constexpr float kScoreRightX = 1230.0f;
 
 	// 数字の中心Y座標
-	static constexpr float kScoreTopY = 50.0f;
+	static constexpr float kScoreTopY = 110.0f;
+
+	// スコアアイコン
+	KamataEngine::Sprite* scoreIconSprite_ = nullptr;
+
+	// スコアアイコンの大きさ
+	static constexpr float kScoreIconSize = 350.0f;
+
+	// 数字との間隔
+	static constexpr float kScoreIconMargin = 12.0f;
 
 	// 初期化
 	void InitializeScoreDisplay();
@@ -309,6 +351,15 @@ private:
 	// カウント終了時のサイズ
 	static constexpr float kCountdownEndScale = 0.85f;
 
+	// 残り時間アイコン
+	KamataEngine::Sprite* timeIconSprite_ = nullptr;
+
+	// 残り時間アイコンの大きさ
+	static constexpr float kTimeIconSize = 350.0f;
+
+	// 数字との間隔
+	static constexpr float kTimeIconMargin = 12.0f;
+
 	void InitializeCountdown();
 	void StartCountdown();
 	void UpdateCountdown();
@@ -328,9 +379,11 @@ private:
 	// 数字同士の間隔
 	static constexpr float kTimeDigitSpacing = 44.0f;
 
-	// 左側の数字の中心位置
-	static constexpr float kTimeLeftX = 50.0f;
-	static constexpr float kTimeTopY = 50.0f;
+	// 時間表示の右端
+	static constexpr float kTimeRightX = 1230.0f;
+
+	// 時間表示のY座標
+	static constexpr float kTimeTopY = 45.0f;
 
 	// 初期化
 	void InitializeTimeDisplay();
