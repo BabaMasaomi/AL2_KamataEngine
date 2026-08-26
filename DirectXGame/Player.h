@@ -70,16 +70,17 @@ public:
 	void Update();
 
 	// ルートビヘイビア用更新
-	void BehaviorRootUpdate();		// 通常行動更新
-	void BehaviorAttackUpdate();	// 攻撃行動更新
-	void BehaviorKnockBackUpdate(); // ノックバック更新
-
 	// 通常行動初期化
 	void BehaviorRootInitialize();
+	void BehaviorRootUpdate();		// 通常行動更新
+
 	// 攻撃行動初期化
 	void BehaviorAttackInitialize();
+	void BehaviorAttackUpdate();	// 攻撃行動更新
+
 	// ノックバック初期化
 	void BehaviorKnockBackInitialize();
+	void BehaviorKnockBackUpdate(); // ノックバック更新
 
 	/// <summary>
 	/// 自機の描画
@@ -315,7 +316,7 @@ private:
 	bool isChargeReady_ = false;
 
 	// 溜め開始時のバット角度
-	static constexpr float kChargeBatAngle = -110.0f;
+	static constexpr float kChargeBatAngle = -80.0f;
 
 	/*--------------- 通常攻撃用 ---------------*/
 	// 各フェーズのタイマー
@@ -328,14 +329,14 @@ private:
 	static constexpr float kAttackActiveTime = 0.09f;
 
 	// 後隙
-	static constexpr float kAttackRecoveryTime = 0.10f;
+	static constexpr float kAttackRecoveryTime = 0.15f;
 
 	// 踏み込み速度
-	static constexpr float kAttackStepSpeed = 0.22f;
+	static constexpr float kAttackStepSpeed = 0.80f;
 
 	// バットの振り始めと振り終わり
-	static constexpr float kBatAngleStart = -70.0f;
-	static constexpr float kBatAngleEnd = 70.0f;
+	static constexpr float kBatAngleStart = -55.0f;
+	static constexpr float kBatAngleEnd = 65.0f;
 
 	// 攻撃判定の大きさ
 	static constexpr float kAttackWidth = 3.6f;
@@ -350,8 +351,11 @@ private:
 	// 現在の攻撃フェーズ
 	AttackPhase attackPhase_ = AttackPhase::kStartup;
 
-	// 空中で攻撃可能か
-	bool canAirAttack_ = true;
+	// 空中で行える通常攻撃の最大回数
+	static constexpr uint32_t kMaxAirAttackCount = 3;
+
+	// 現在の空中通常攻撃回数
+	uint32_t airAttackCount_ = 0;
 
 	// 攻撃を開始するたびに増える識別番号
 	uint32_t attackSerial_ = 0;
@@ -367,6 +371,12 @@ private:
 
 	// 縦速度を完全停止させる基準
 	static constexpr float kAirAttackStopSpeed = 0.02f;
+
+	// 空中攻撃終了後に滞空する時間
+	static constexpr float kAirAttackHangTime = 0.08f;
+
+	// 現在の滞空時間
+	float airAttackHangTimer_ = 0.0f;
 
 	/*--------------- プレイヤー被ノックバック ---------------*/
 	// ノックバック方向

@@ -39,7 +39,7 @@ private:
 	/*-------------------- プレイヤー --------------------*/
 	// プレイヤーの3Dモデル
 	KamataEngine::Model* model_ = nullptr;
-	// 攻撃エフェクトの3Dモデル
+	// バットの3Dモデル
 	KamataEngine::Model* modelAttack_ = nullptr;
 
 	// プレイヤーのワールドトランスフォーム
@@ -57,16 +57,6 @@ private:
 
 	// 敵のリスト
 	std::list<Enemy*> enemies_ = {};
-
-	///*-------------------- 盾敵 --------------------*/
-	//// 敵の3Dモデル
-	//KamataEngine::Model* modelShieldEnemy_ = nullptr;
-
-	//// 敵のワールドトランスフォーム
-	//KamataEngine::WorldTransform worldTransformShieldEnemy_;
-
-	//// 敵のリスト
-	//std::list<ShieldEnemy*> shieldEnemies_ = {};
 
 	/*-------------------- 天球 --------------------*/
 	// 天球の3Dモデル

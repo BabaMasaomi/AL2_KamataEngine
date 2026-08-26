@@ -1482,8 +1482,8 @@ void Enemy::BehaviorRootUpdate() {
 		velocity_.x = 0.0f;
 	}
 
-	UpdateFacingDirection();
-	UpdateRootMapMovement();
+	/*UpdateFacingDirection();
+	UpdateRootMapMovement();*/
 
 	/*========== アニメーション ==========*/
 	// 歩行中だけアニメーションさせる

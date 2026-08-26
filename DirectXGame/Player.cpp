@@ -35,7 +35,8 @@ void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const 
 	worldTransform_.translation_ = pos;
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
 
-	worldTransformAttack_.scale_ = {2.0f, 2.0f, 2.0f};
+	// バットの長さをプレイヤーに合わせる
+	worldTransformAttack_.scale_ = {1.0f, 1.0f, 1.0f};
 
 	// 3Dモデルの生成
 	model_ = model;
@@ -138,15 +139,19 @@ void Player::Update() {
 		isDead_ = true;
 	}
 
-	// 攻撃エフェクトの位置更新
+	// バットの位置更新
 	if (isAttackEffect_) {
 		float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
 
+		// プレイヤーの座標を基準にする
 		worldTransformAttack_.translation_ = worldTransform_.translation_;
 
-		worldTransformAttack_.translation_.x += direction * 0.8f;
+		// プレイヤーの手元へ移動
+		worldTransformAttack_.translation_.x += direction * 0.72f;
+		worldTransformAttack_.translation_.y += 0.10f;
 
-		worldTransformAttack_.translation_.y += 0.3f;
+		// プレイヤーより少しカメラ側へ出し、モデルへの埋没を防ぐ
+		worldTransformAttack_.translation_.z -= 0.20f;
 
 		transform_.worldMatrixUpdate(worldTransformAttack_);
 	}
@@ -171,14 +176,14 @@ void Player::BehaviorRootUpdate() {
 	if (Input::GetInstance()->TriggerKey(DIK_Z)) {
 		// 地上なら何度でも攻撃可能
 		if (onGround_) {
-			// 攻撃ビヘイビアをリクエスト
 			behaiviorRequest_ = Behavior::kAttack;
 
-		} else if (canAirAttack_) {
-			// 空中なら1回だけ
-			// 攻撃ビヘイビアをリクエスト
+		} else if (airAttackCount_ < kMaxAirAttackCount) {
+			// 空中では着地するまで最大3回
 			behaiviorRequest_ = Behavior::kAttack;
-			canAirAttack_ = false;
+
+			// 空中攻撃回数を増やす
+			++airAttackCount_;
 		}
 	}
 
@@ -247,11 +252,22 @@ void Player::BehaviorRootUpdate() {
 		}
 	}
 
-	// 空中かつ、ジャンプした直後でなければ重力を適用
+	// 空中かつ、ジャンプした直後でなければ重力を処理
 	if (!onGround_ && !jumpedThisFrame) {
-		velocity_.y -= kGravityAcceleration;
+		const float deltaTime = 1.0f / 60.0f;
 
-		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
+		if (airAttackHangTimer_ > 0.0f) {
+			// 空中攻撃後の短い滞空時間
+			airAttackHangTimer_ -= deltaTime;
+			airAttackHangTimer_ = std::max(airAttackHangTimer_, 0.0f);
+
+			velocity_.y = 0.0f;
+
+		} else {
+			// 滞空終了後は通常どおり落下
+			velocity_.y -= kGravityAcceleration;
+			velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
+		}
 	}
 
 	/*========== ⑦旋回制御 ==========*/
@@ -330,7 +346,8 @@ void Player::BehaviorAttackUpdate() {
 			// 溜めるほど大きく振りかぶる
 			float angleDegree = EaseOut(0.0f, kChargeBatAngle, t);
 
-			worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
+			worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
+			worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
 
 			// 規定時間に達した
 			if (chargeTimer_ >= kChargeRequiredTime) {
@@ -358,7 +375,8 @@ void Player::BehaviorAttackUpdate() {
 
 		// 溜め中の角度から、攻撃開始位置へ合わせる
 		float angleDegree = EaseOut(startAngle, kBatAngleStart, t);
-		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
+		worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
+		worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
 
 		if (attackTimer_ >= startupTime) {
 			attackTimer_ = 0.0f;
@@ -379,8 +397,8 @@ void Player::BehaviorAttackUpdate() {
 
 		float angleDegree = EaseOut(swingStart, kBatAngleEnd, t);
 
-		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
-
+		worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
+		worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
 		// 溜め攻撃は少し強く踏み込む
 		velocity_.x = direction * stepSpeed * (1.0f - t);
 
@@ -400,11 +418,18 @@ void Player::BehaviorAttackUpdate() {
 
 		float angleDegree = EaseOut(kBatAngleEnd, 0.0f, t);
 
-		worldTransformAttack_.rotation_.z = angleDegree * std::numbers::pi_v<float> / 180.0f * direction;
+		worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
+		worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
 
 		velocity_.x = 0.0f;
 
 		if (attackTimer_ >= recoveryTime) {
+			// 空中攻撃後は、落下開始まで少し猶予を作る
+			if (!onGround_) {
+				airAttackHangTimer_ = kAirAttackHangTime;
+				velocity_.y = 0.0f;
+			}
+
 			EndAttack();
 			behaiviorRequest_ = Behavior::kRoot;
 		}
@@ -824,11 +849,17 @@ void Player::SwitchGroundingState(const CollisionMapInfo& info) {
 			// 着地状態に切り替える
 			onGround_ = true;
 
-			canAirAttack_ = true;
+			// 空中攻撃回数を回復
+			airAttackCount_ = 0;
+
+			// 二段ジャンプも回復
 			canDoubleJump_ = true;
 
 			// Y方向速度を0にする
 			velocity_.y = 0.0f;
+
+			// 空中攻撃後の滞空を終了
+			airAttackHangTimer_ = 0.0f;
 		}
 	}
 }
@@ -947,7 +978,8 @@ void Player::EndAttack() {
 
 	worldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
 
-	worldTransformAttack_.rotation_.z = 0.0f;
+	worldTransformAttack_.rotation_.x = 0.0f;
+	worldTransformAttack_.rotation_.y = 0.0f;
 
 	attackPhase_ = AttackPhase::kNone;
 	attackType_ = AttackType::kNormal;

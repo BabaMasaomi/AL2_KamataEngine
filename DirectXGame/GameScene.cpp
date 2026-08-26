@@ -66,8 +66,8 @@ void GameScene::Initialize() {
 	/*--------------- プレイヤー ---------------*/
 	// プレイヤーの3Dモデルの生成
 	model_ = Model::CreateFromOBJ("player", true);
-	// 攻撃エフェクトの3Dモデルの生成
-	modelAttack_ = Model::CreateFromOBJ("hit_effect", true);
+	// バットモデルの生成
+	modelAttack_ = Model::CreateFromOBJ("Bat", true);
 
 	// プレイヤーのワールドトランスフォームの初期化
 	worldTransformPlayer_.Initialize();
