@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iterator>
+#include <random>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -88,31 +89,26 @@ void GameScene::Initialize() {
 	// 敵の3Dモデルの生成
 	modelEnemy_ = Model::CreateFromOBJ("enemy", true);
 
-	// 敵のワールドトランスフォームの初期化
-	worldTransformEnemy_.Initialize();
+	//// 初期敵を別々の位置へ配置
+	// const uint32_t initialEnemyXIndices[kInitialEnemyCount] = {
+	//     24,
+	//     38,
+	//     52,
+	// };
 
-	for (int32_t i = 0; i < 3; i++) {
-		// 敵の生成
-		Enemy* newEnemy = new Enemy();
+	// チュートリアル用に1体だけ生成
+	// 従来の敵は一時停止しておく
+	InitializeTutorial();
 
-		//
-		newEnemy->SetMapChipField(mapChipField_);
+	/*for (size_t i = 0; i < kInitialEnemyCount; ++i) {
 
-		// 座標をマップチップ番号で指定
-		Vector3 enemyPos = mapChipField_->GetMapChipPositionByIndex(40 + i * 7, 16);
+	    Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(initialEnemyXIndices[i], 17);
 
-		// 敵の初期化
-		newEnemy->Initialize(modelEnemy_, &camera_, enemyPos);
+	    SpawnEnemy(enemyPosition);
+	}*/
 
-		// 追跡対象としてプレイヤーを設定
-		newEnemy->SetTarget(player_);
-
-		// 敵にゲームシーンを渡す
-		newEnemy->SetGameScene(this);
-
-		// リストに追加
-		enemies_.push_back(newEnemy);
-	}
+	isReinforcementUnlocked_ = false;
+	playTimer_ = 0.0f;
 
 	/*--------------- 天球 ---------------*/
 	// 天球の3Dモデルの生成
@@ -192,6 +188,12 @@ void GameScene::Update() {
 		return;
 	}
 
+	// プレイ時間タイマー
+	if (isMainGameStarted_) {
+		playTimer_ += deltaTime;
+		playTimer_ = (std::min)(playTimer_, kClearTime);
+	}
+
 	// フェーズごとの更新処理
 	switch (phase_) {
 	case ::GameScene::Phase::kFadeIn:
@@ -204,10 +206,10 @@ void GameScene::Update() {
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
-
-			// 通常・スタン状態の敵同士の重なりを解消
-			ResolveEnemyOverlaps();
 		}
+
+		// 全員更新後に1回だけ実行
+		ResolveEnemyOverlaps();
 
 		// カメラコントローラの更新
 		camaraController_->Update();
@@ -254,7 +256,8 @@ void GameScene::Update() {
 		fade_->Update();
 		break;
 
-	case GameScene::Phase::kPlay:
+	case GameScene::Phase::kPlay: {
+
 		// インゲームの更新処理
 		// 天球の更新
 		skydome_->Update();
@@ -265,19 +268,56 @@ void GameScene::Update() {
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
-
-			// 通常・スタン状態の敵同士の重なりを解消
-			ResolveEnemyOverlaps();
 		}
 
+		// 通常・スタン状態の敵同士の重なりを解消
+		ResolveEnemyOverlaps();
+
 		// デスフラグの立った敵を削除
-		enemies_.remove_if([](Enemy* enemy) {
-			if (enemy->GetIsDead()) {
-				delete enemy;
-				return true;
+		size_t defeatedEnemyCount = 0;
+
+		enemies_.remove_if([this, &defeatedEnemyCount](Enemy* enemy) {
+			if (!enemy->GetIsDead()) {
+				return false;
 			}
-			return false;
+
+			// 削除後にダングリングポインタを残さない
+			if (enemy == tutorialLauncherEnemy_) {
+				tutorialLauncherEnemy_ = nullptr;
+			}
+
+			if (enemy == tutorialTargetEnemy_) {
+				tutorialTargetEnemy_ = nullptr;
+			}
+
+			// 通常プレイの敵だけ撃破数として扱う
+			if (!enemy->IsTutorialEnemy()) {
+				++defeatedEnemyCount;
+			}
+
+			delete enemy;
+			return true;
 		});
+
+		// 本プレイ中に倒した通常敵だけスコアへ加算
+		if (isMainGameStarted_ && defeatedEnemyCount > 0) {
+
+			score_ += static_cast<uint32_t>(defeatedEnemyCount) * kScorePerEnemy;
+		}
+
+		// 最初の敵が倒されたら補充を解放
+		if (defeatedEnemyCount > 0) {
+			isReinforcementUnlocked_ = true;
+		}
+
+		// 制限時間前だけ敵を補充
+		if (isMainGameStarted_ && playTimer_ < kClearTime) {
+			ReplenishEnemies();
+		}
+
+		if (!isMainGameStarted_) {
+			UpdateTutorial();
+		}
 
 		// ヒットエフェクトの更新
 		UpdateHitEffects();
@@ -325,6 +365,7 @@ void GameScene::Update() {
 		CheckEnemyCollisions();
 
 		break;
+	}
 
 	case GameScene::Phase::kDeath:
 		// デス演出の更新処理
@@ -454,10 +495,182 @@ void GameScene::Draw() {
 	// プレイヤーの描画
 	player_->Draw();
 
+	//// 操作ガイドの描画(チュートリアル中のみ)	描画するものがないので一旦停止
+	// switch (tutorialState_) {
+	// case TutorialState::kMove:
+	//	moveGuideSprite_->Draw();
+	//	break;
+
+	// case TutorialState::kNormalAttack:
+	//	normalAttackGuideSprite_->Draw();
+	//	break;
+
+	// case TutorialState::kChargedAttack:
+	//	chargedAttackGuideSprite_->Draw();
+	//	break;
+
+	// case TutorialState::kHitTarget:
+	//	hitTargetGuideSprite_->Draw();
+	//	break;
+
+	// case TutorialState::kFinished:
+	//	break;
+	// }
+
 	// フェードを更新
 	fade_->Draw();
 
 	Model::PostDraw();
+}
+
+/*-------------------- 指定位置へ敵を1体生成 --------------------*/
+void GameScene::SpawnEnemy(const Vector3& position) {
+
+	Enemy* newEnemy = new Enemy();
+
+	newEnemy->SetMapChipField(mapChipField_);
+
+	newEnemy->Initialize(modelEnemy_, &camera_, position);
+
+	newEnemy->SetTarget(player_);
+	newEnemy->SetGameScene(this);
+
+	enemies_.push_back(newEnemy);
+}
+/*-------------------- 画面外の補充位置を探す --------------------*/
+Vector3 GameScene::FindReinforcementSpawnPosition() {
+
+	constexpr float kCameraHalfWidth = 21.0f;
+	constexpr float kOutsideMargin = 2.0f;
+
+	std::vector<Vector3> candidates;
+
+	// 実際に使用されている右端を探す
+	uint32_t rightBoundaryIndex = 0;
+
+	for (uint32_t y = 0; y < MapChipField::kNumBlockVertical; ++y) {
+
+		for (uint32_t x = 0; x < MapChipField::kNumBlockHorizontal; ++x) {
+
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kBlock) {
+
+				rightBoundaryIndex = (std::max)(rightBoundaryIndex, x);
+			}
+		}
+	}
+
+	// 左右の外壁を候補から除外
+	for (uint32_t x = 1; x < rightBoundaryIndex; ++x) {
+
+		Vector3 candidatePosition = mapChipField_->GetMapChipPositionByIndex(x, 17);
+
+		// 画面内なら候補にしない
+		float cameraDistance = std::abs(candidatePosition.x - camera_.translation_.x);
+
+		if (cameraDistance <= kCameraHalfWidth + kOutsideMargin) {
+			continue;
+		}
+
+		/*
+		 * 最上段と地面を除き、
+		 * この列に浮遊足場がないか確認する。
+		 */
+		bool hasFloatingPlatform = false;
+
+		for (uint32_t y = 1; y < MapChipField::kNumBlockVertical - 1; ++y) {
+
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kBlock) {
+
+				hasFloatingPlatform = true;
+				break;
+			}
+		}
+
+		if (hasFloatingPlatform) {
+			continue;
+		}
+
+		candidates.push_back(candidatePosition);
+	}
+
+	if (!candidates.empty()) {
+
+		// 乱数生成器
+		static std::random_device randomDevice;
+		static std::mt19937 randomEngine(randomDevice());
+
+		// 候補の並び順を毎回ランダムにする
+		std::shuffle(candidates.begin(), candidates.end(), randomEngine);
+
+		// 既にいる敵との最低間隔
+		constexpr float kMinimumSpawnDistance = 6.0f;
+
+		// 他の敵から十分に離れた候補を探す
+		for (const Vector3& candidate : candidates) {
+
+			bool isTooClose = false;
+
+			for (Enemy* enemy : enemies_) {
+				if (!enemy) {
+					continue;
+				}
+
+				const float differenceX = candidate.x - enemy->GetWorldPos().x;
+
+				if (std::abs(differenceX) < kMinimumSpawnDistance) {
+					isTooClose = true;
+					break;
+				}
+			}
+
+			if (!isTooClose) {
+				return candidate;
+			}
+		}
+
+		/*
+		 * 十分に離れた場所がなければ、
+		 * ランダムに並べ替えた最初の候補を使う。
+		 */
+		return candidates.front();
+	}
+
+	/*
+	 * 画面外に安全な場所がなかった場合の予備位置。
+	 * プレイヤーから遠い左右どちらかへ配置する。
+	 */
+	float direction = player_->GetWorldPos().x < camera_.translation_.x ? 1.0f : -1.0f;
+
+	return {
+	    camera_.translation_.x + direction * (kCameraHalfWidth + kOutsideMargin),
+	    4.0f,
+	    0.0f,
+	};
+}
+
+/*-------------------- 上限まで敵を補充 --------------------*/
+void GameScene::ReplenishEnemies() {
+	if (!isReinforcementUnlocked_) {
+		return;
+	}
+
+	// 既に最大数ならタイマーを初期化
+	if (enemies_.size() >= kMaxEnemyCount) {
+		reinforcementSpawnTimer_ = 0.0f;
+		return;
+	}
+
+	// 補充待ち時間を進める
+	reinforcementSpawnTimer_ += 1.0f / 60.0f;
+
+	if (reinforcementSpawnTimer_ < kReinforcementSpawnInterval) {
+		return;
+	}
+
+	reinforcementSpawnTimer_ = 0.0f;
+
+	// 1回につき1体だけ補充する
+	SpawnEnemy(FindReinforcementSpawnPosition());
 }
 
 /*-------------------- エフェクトの生成 --------------------*/
@@ -899,6 +1112,100 @@ CameraController::Rect GameScene::CalculateCameraMovableArea() {
 	};
 }
 
+/*--------------------  --------------------*/
+void GameScene::InitializeTutorial() {
+	tutorialState_ = TutorialState::kMove;
+	isMainGameStarted_ = false;
+
+	playTimer_ = 0.0f;
+	isReinforcementUnlocked_ = false;
+
+	// 吹き飛ばされる練習用の敵
+	tutorialLauncherEnemy_ = new Enemy();
+	tutorialLauncherEnemy_->SetMapChipField(mapChipField_);
+	tutorialLauncherEnemy_->Initialize(modelEnemy_, &camera_, mapChipField_->GetMapChipPositionByIndex(28, 17));
+	tutorialLauncherEnemy_->SetGameScene(this);
+	tutorialLauncherEnemy_->SetPurpose(EnemyPurpose::kTutorialLauncher);
+
+	// SetTarget(player_)は呼ばない
+	enemies_.push_back(tutorialLauncherEnemy_);
+
+	// 吹き飛ばした敵を当てる標的
+	tutorialTargetEnemy_ = new Enemy();
+	tutorialTargetEnemy_->SetMapChipField(mapChipField_);
+	tutorialTargetEnemy_->Initialize(modelEnemy_, &camera_, mapChipField_->GetMapChipPositionByIndex(34, 17));
+	tutorialTargetEnemy_->SetGameScene(this);
+	tutorialTargetEnemy_->SetPurpose(EnemyPurpose::kTutorialTarget);
+
+	enemies_.push_back(tutorialTargetEnemy_);
+}
+
+/*--------------------  --------------------*/
+void GameScene::UpdateTutorial() {
+	switch (tutorialState_) {
+	case TutorialState::kMove:
+		// ステージ中央付近に到着
+		if (player_->GetWorldPos().x >= kTutorialCenterX) {
+			tutorialState_ = TutorialState::kNormalAttack;
+		}
+		break;
+
+	case TutorialState::kNormalAttack:
+		// 通常攻撃を必要回数当て、敵がスタンした
+		if (tutorialLauncherEnemy_ && tutorialLauncherEnemy_->IsStunned()) {
+
+			tutorialState_ = TutorialState::kChargedAttack;
+		}
+		break;
+
+	case TutorialState::kChargedAttack:
+		// スタン敵に溜め攻撃が当たった
+		if (tutorialLauncherEnemy_ && tutorialLauncherEnemy_->IsBlownAway()) {
+
+			tutorialState_ = TutorialState::kHitTarget;
+		}
+		break;
+
+	case TutorialState::kHitTarget:
+		/*
+		 * 2体目が吹き飛んできた敵によって倒され、
+		 * 死亡演出まで完了した。
+		 */
+		if (!tutorialTargetEnemy_) {
+			tutorialState_ = TutorialState::kFinished;
+		}
+		break;
+
+	case TutorialState::kFinished:
+		StartMainGame();
+		break;
+	}
+}
+
+/*--------------------  --------------------*/
+void GameScene::StartMainGame() {
+	if (isMainGameStarted_) {
+		return;
+	}
+
+	isMainGameStarted_ = true;
+
+	score_ = 0;
+	playTimer_ = 0.0f;
+
+	// 本プレイ開始直後から最大10体まで補充可能
+	isReinforcementUnlocked_ = true;
+
+	// 最初の1体はすぐに出現させる
+	reinforcementSpawnTimer_ = kReinforcementSpawnInterval;
+
+	/*
+	 * ここでは敵を直接生成しない。
+	 * ReplenishEnemies()が一定間隔で
+	 * 1体ずつ最大10体まで生成する。
+	 */
+}
+
 /*-------------------- フェーズの切り替え --------------------*/
 void GameScene::ChangePhase() {
 	switch (phase_) {
@@ -924,11 +1231,12 @@ void GameScene::ChangePhase() {
 			deathParticles_ = new DeathParticles();
 			deathParticles_->Initialize(modelParticles_, &camera_, deathParticlesPosition);
 
-		} else if (enemies_.empty()) {
-			// 3体すべて削除されたらクリア
+		} else if (playTimer_ >= kClearTime) {
+			// 30秒生存したらクリア
 			gameResult_ = GameResult::kClear;
 
 			phase_ = GameScene::Phase::kFadeOut;
+
 			fade_->Start(Fade::Status::FadeOut, 0.75f);
 		}
 

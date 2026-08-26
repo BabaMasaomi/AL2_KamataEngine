@@ -349,7 +349,7 @@ private:
 	static constexpr float kBatAngleEnd = 100.0f;
 
 	// 攻撃判定の大きさ
-	static constexpr float kAttackWidth = 3.6f;
+	static constexpr float kAttackWidth = 3.8f;
 	static constexpr float kAttackHeight = 2.6f;
 
 	// プレイヤー中心から攻撃判定までの距離

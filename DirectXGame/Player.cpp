@@ -315,6 +315,24 @@ void Player::BehaviorRootUpdate() {
 
 // 攻撃行動初期化
 void Player::BehaviorAttackInitialize() {
+	/*========== 攻撃方向へ姿勢を揃える ==========*/
+	float attackRotationY = 0.0f;
+
+	if (lrDirection_ == LRDirection::kRight) {
+		attackRotationY = std::numbers::pi_v<float> / 2.0f;
+
+	} else {
+		attackRotationY = std::numbers::pi_v<float> * 3.0f / 2.0f;
+	}
+
+	// 旋回途中の斜め姿勢を正面へ揃える
+	worldTransform_.rotation_.y = attackRotationY;
+
+	// 残っている旋回補間を終了させる
+	turnTimer_ = 0.0f;
+	turnFirstRotationY_ = attackRotationY;
+
+	/*========== 既存の攻撃初期化 ==========*/
 	attackTimer_ = 0.0f;
 	chargeTimer_ = 0.0f;
 

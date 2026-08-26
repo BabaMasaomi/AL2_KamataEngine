@@ -23,6 +23,13 @@ enum class BehaviorEnemy {
 	kUnknown,
 };
 
+// 敵の用途
+enum class EnemyPurpose {
+	kNormal,           // 通常の敵
+	kTutorialLauncher, // プレイヤーに吹き飛ばされる敵
+	kTutorialTarget,   // 飛んできた敵を当てる標的
+};
+
 // 追跡ジャンプの状態
 enum class ChaseJumpState {
 	kDirectChase,    // 通常追跡
@@ -157,6 +164,8 @@ public:
 		       chaseJumpState_ == ChaseJumpState::kMoveToDropEdge || chaseJumpState_ == ChaseJumpState::kDropping;
 	}
 
+	bool IsTutorialEnemy() const { return purpose_ != EnemyPurpose::kNormal; }
+
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
 
@@ -169,6 +178,8 @@ public:
 	int32_t GetHp() const { return hp_; }
 	int32_t GetStunValue() const { return stunHitCount_; }
 
+	EnemyPurpose GetPurpose() const { return purpose_; }	
+
 	// セッター
 	void SetGameScene(GameScene* gameScene);
 
@@ -176,6 +187,8 @@ public:
 
 	// 追跡対象を設定
 	void SetTarget(Player* target) { target_ = target; }
+
+	void SetPurpose(EnemyPurpose purpose) { purpose_ = purpose; }
 
 private:
 	// HPダメージを受ける
@@ -258,6 +271,9 @@ private:
 
 	// 経過時間
 	float walkTimer_ = 0.0f;
+
+	// この敵の用途
+	EnemyPurpose purpose_ = EnemyPurpose::kNormal;
 
 	/*--------------- 通常状態の地形移動 ---------------*/
 	// 接地しているか
@@ -380,7 +396,7 @@ private:
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP
-	static constexpr int32_t kMaxHp = 60;
+	static constexpr int32_t kMaxHp = 6;
 
 	// 現在のHP
 	int32_t hp_ = kMaxHp;
@@ -447,7 +463,7 @@ private:
 	static constexpr float kHitRecoveryTime = 0.18f;
 
 	// スタン発生時に周囲へ与える弱いノックバック速度
-	static constexpr float kStunShockwaveKnockBackSpeed = 0.20f;
+	static constexpr float kStunShockwaveKnockBackSpeed = 4.20f;
 
 	/*--------------- 直線吹き飛び ---------------*/
 	// 最初の吹っ飛び角度の最大最小

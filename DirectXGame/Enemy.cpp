@@ -252,7 +252,10 @@ void Enemy::UpdateRootMapMovement() {
 	velocity_.y = std::max(velocity_.y, -kMaxFallSpeed);
 
 	/*========== 追跡ジャンプ ==========*/
-	TryChaseJump();
+	// 通常敵だけ追跡ジャンプを行う
+	if (purpose_ == EnemyPurpose::kNormal) {
+		TryChaseJump();
+	}
 
 	/*========== 横方向の移動と壁判定 ==========*/
 	float movementX = 0.0f;
@@ -967,6 +970,16 @@ bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, f
 
 	const float takeoffMargin = kWidth / 2.0f + kRootMapMargin;
 
+	bool foundReachablePlatform = false;
+
+	float bestRouteCost = std::numeric_limits<float>::max();
+
+	float bestTakeoffX = 0.0f;
+	float bestJumpDirection = 0.0f;
+	float bestPlatformTopY = 0.0f;
+
+	const float playerY = target_->GetWorldPos().y;
+
 	/*
 	 * 敵に近い高さから順に調べる。
 	 * 同じ高さに複数の足場がある場合は、
@@ -979,14 +992,6 @@ bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, f
 		}
 
 		uint32_t checkY = enemyIndex.yIndex - step;
-
-		bool foundReachablePlatform = false;
-
-		float bestRouteCost = std::numeric_limits<float>::max();
-
-		float bestTakeoffX = 0.0f;
-		float bestJumpDirection = 0.0f;
-		float bestPlatformTopY = 0.0f;
 
 		/*========== この高さの足場を横方向全体から探す ==========*/
 		uint32_t xIndex = 0;
@@ -1049,7 +1054,11 @@ bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, f
 			if (canUseLeft) {
 				float landingX = leftTakeoffX + (kWidth + kRootMapMargin * 2.0f);
 
-				float routeCost = std::abs(enemyX - leftTakeoffX) + std::abs(playerX - landingX);
+				float predictedEnemyY = candidatePlatformTopY + kHeight / 2.0f + kRootMapMargin;
+
+				float heightDifference = std::abs(playerY - predictedEnemyY);
+
+				float routeCost = std::abs(enemyX - leftTakeoffX) + std::abs(playerX - landingX) + heightDifference * 4.0f;
 
 				if (routeCost < bestRouteCost) {
 					bestRouteCost = routeCost;
@@ -1065,7 +1074,11 @@ bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, f
 			if (canUseRight) {
 				float landingX = rightTakeoffX - (kWidth + kRootMapMargin * 2.0f);
 
-				float routeCost = std::abs(enemyX - rightTakeoffX) + std::abs(playerX - landingX);
+				float predictedEnemyY = candidatePlatformTopY + kHeight / 2.0f + kRootMapMargin;
+
+				float heightDifference = std::abs(playerY - predictedEnemyY);
+
+				float routeCost = std::abs(enemyX - rightTakeoffX) + std::abs(playerX - landingX) + heightDifference * 4.0f;
 
 				if (routeCost < bestRouteCost) {
 					bestRouteCost = routeCost;
@@ -1077,18 +1090,15 @@ bool Enemy::FindOverheadPlatformTakeoff(float& takeoffX, float& jumpDirection, f
 				}
 			}
 		}
+	}
 
-		/*
-		 * この高さに乗れる足場が見つかった場合、
-		 * さらに上を直接狙わず、まずその足場へ乗る。
-		 */
-		if (foundReachablePlatform) {
-			takeoffX = bestTakeoffX;
-			jumpDirection = bestJumpDirection;
-			platformTopY = bestPlatformTopY;
+	// 全候補の中で最も経路評価が良かった足場を使う
+	if (foundReachablePlatform) {
+		takeoffX = bestTakeoffX;
+		jumpDirection = bestJumpDirection;
+		platformTopY = bestPlatformTopY;
 
-			return true;
-		}
+		return true;
 	}
 
 	return false;
@@ -1404,6 +1414,16 @@ void Enemy::BehaviorRootInitialize() {
 void Enemy::BehaviorRootUpdate() {
 	const float deltaTime = 1.0f / 60.0f;
 
+	// チュートリアル敵は追跡や自発的な横移動をしない
+	if (purpose_ != EnemyPurpose::kNormal) {
+		velocity_.x = 0.0f;
+
+		// 重力、床、壁との判定は実行する
+		UpdateRootMapMovement();
+
+		return;
+	}
+
 	/*========== 上方向ジャンプの着地判定 ==========*/
 	if (chaseJumpState_ == ChaseJumpState::kJumping && isOnGround_) {
 
@@ -1624,10 +1644,11 @@ void Enemy::BehaviorStunnedUpdate() {
 	worldTransform_.rotation_.z = shakeDegree * std::numbers::pi_v<float> / 180.0f;
 
 	/*========== スタン終了 ==========*/
+	// 通常敵だけ3秒でスタンを解除する
+	const float stunDuration = purpose_ == EnemyPurpose::kTutorialLauncher ? 10.0f : kStunnedTime;
 
-	if (stunnedTimer_ >= kStunnedTime) {
+	if (stunnedTimer_ >= stunDuration) {
 		stunHitCount_ = 0;
-
 		behaviorRequest_ = BehaviorEnemy::kRoot;
 	}
 }
@@ -1648,7 +1669,22 @@ void Enemy::BehaviorBlownAwayInitialize() {
 	velocity_ = {};
 
 	// 正面から斜め上までのランダム角度
-	float initialAngleDegree = RandomFloat(kInitialBlownAwayAngleMin, kInitialBlownAwayAngleMax);
+	float initialAngleDegree = 0.0f;
+
+	if (purpose_ == EnemyPurpose::kTutorialLauncher) {
+		/*
+		 * チュートリアル標的を右側へ配置しているため、
+		 * 必ず右斜め上へ飛ばす。
+		 */
+		blownAwayDirection_ = 1.0f;
+
+		// 地面との判定を避けつつ、ほぼ水平に飛ばす
+		initialAngleDegree = 5.0f;
+
+	} else {
+		// 通常プレイは従来どおりランダム
+		initialAngleDegree = RandomFloat(kInitialBlownAwayAngleMin, kInitialBlownAwayAngleMax);
+	}
 
 	// 度からラジアンへ変換
 	float initialAngle = initialAngleDegree * std::numbers::pi_v<float> / 180.0f;
@@ -2260,9 +2296,13 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 // 当たり判定が無効化されているか
 bool Enemy::IsCollisionDisEnabled() const { return isCollisionDisenabled_; }
 
+// プレイヤーへ接触ダメージを与えられるか
 bool Enemy::CanDamagePlayer() const {
-	// 通常行動中かつ、
-	// 攻撃による小ノックバック中でなければ危険
+	// チュートリアル敵はプレイヤーへ接触ダメージを与えない
+	if (purpose_ != EnemyPurpose::kNormal) {
+		return false;
+	}
+
 	return behavior_ == BehaviorEnemy::kRoot && !isHitKnockBack_;
 }
 
@@ -2319,8 +2359,15 @@ void Enemy::OnCollisionBlownAwayEnemy(float attackDirection) {
 		return;
 	}
 
+	int32_t damage = kBlownAwayHitHpDamage;
+
+	// チュートリアル標的は吹き飛ばし衝突1回で倒す
+	if (purpose_ == EnemyPurpose::kTutorialTarget) {
+		damage = hp_;
+	}
+
 	// 飛来した敵から大きなHPダメージを受ける
-	bool defeated = ApplyHpDamage(kBlownAwayHitHpDamage);
+	bool defeated = ApplyHpDamage(damage);
 
 	// 撃破された場合は、ノックバックやスタンで
 	// 死亡リクエストを上書きしない

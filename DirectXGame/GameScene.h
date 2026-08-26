@@ -24,6 +24,15 @@ private:
 		kFadeOut, // フェードアウト
 	};
 
+	// チュートリアル進行状態
+	enum class TutorialState {
+		kMove,          // 移動説明
+		kNormalAttack,  // 通常攻撃でスタンさせる
+		kChargedAttack, // 溜め攻撃で吹き飛ばす
+		kHitTarget,     // 別の敵へ命中させる
+		kFinished,      // チュートリアル終了
+	};
+
 	// ゲームのフェーズ(変数)
 	Phase phase_;
 
@@ -57,6 +66,32 @@ private:
 
 	// 敵のリスト
 	std::list<Enemy*> enemies_ = {};
+
+	/*-------------------- 敵の出現管理 --------------------*/
+	// 開始時の敵数
+	static constexpr size_t kInitialEnemyCount = 3;
+
+	// 補充解放後の同時出現上限
+	static constexpr size_t kMaxEnemyCount = 10;
+
+	// 最初の敵が倒され、補充が解放されたか
+	bool isReinforcementUnlocked_ = false;
+
+	//// 補充位置を順番に使うための番号
+	//size_t reinforcementSpawnCursor_ = 0;
+
+	// 次の敵を補充できるまでの時間
+	float reinforcementSpawnTimer_ = 0.0f;
+
+	// 敵を補充する間隔
+	static constexpr float kReinforcementSpawnInterval = 0.25f;
+
+	/*-------------------- 制限時間 --------------------*/
+	// プレイ経過時間
+	float playTimer_ = 0.0f;
+
+	// クリアまでの時間
+	static constexpr float kClearTime = 60.0f;
 
 	/*-------------------- 天球 --------------------*/
 	// 天球の3Dモデル
@@ -119,6 +154,26 @@ private:
 	// デバッグカメラ有効
 	bool isDebugCameraActive_ = false;
 
+	/*-------------------- スコア --------------------*/
+	// 現在のスコア
+	uint32_t score_ = 0;
+
+	// 敵1体を倒したときの得点
+	static constexpr uint32_t kScorePerEnemy = 100;
+
+	/*-------------------- チュートリアル --------------------*/
+	TutorialState tutorialState_ = TutorialState::kMove;
+
+	// チュートリアル敵を識別するためのポインタ
+	Enemy* tutorialLauncherEnemy_ = nullptr;
+	Enemy* tutorialTargetEnemy_ = nullptr;
+
+	// 通常プレイが始まっているか
+	bool isMainGameStarted_ = false;
+
+	// 中央に到着したと判断するX座標
+	static constexpr float kTutorialCenterX = 42.0f;
+
 	/*-------------------- ゲームの終了判定 --------------------*/
 	// ゲーム終了結果
 	GameResult gameResult_ = GameResult::kNone;
@@ -144,6 +199,15 @@ public:
 
 	// 描画
 	void Draw();
+
+	// 指定位置へ敵を1体生成
+	void SpawnEnemy(const KamataEngine::Vector3& position);
+
+	// 画面外の補充位置を探す
+	KamataEngine::Vector3 FindReinforcementSpawnPosition();
+
+	// 上限まで敵を補充
+	void ReplenishEnemies();
 
 	// エフェクトの生成
 	void CreateHitEffect(KamataEngine::Vector3 pos, HitEffectType type);
@@ -174,11 +238,18 @@ public:
 	// マップのブロック配置からカメラ移動範囲を計算
 	CameraController::Rect CalculateCameraMovableArea();
 
+	// チュートリアル
+	void InitializeTutorial();
+	void UpdateTutorial();
+	void StartMainGame();
+
 	// フェーズの切り替え
 	void ChangePhase();
 
 	/*-------------------- アクセッサ --------------------*/
 	bool GetIsFinished() const { return finished_; }
+
+	uint32_t GetScore() const { return score_; }
 
 	GameResult GetGameResult() const { return gameResult_; }
 };
