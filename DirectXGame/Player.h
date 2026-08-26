@@ -265,8 +265,8 @@ private:
 	static inline const float kAttenuationWall = 0.75f;
 
 	// キャラクターの当たり判定サイズ
-	static inline const float kWidth = 1.6f;
-	static inline const float kHeight = 1.6f;
+	static constexpr float kWidth = 1.6f;
+	static constexpr float kHeight = 1.6f;
 
 	// ブロックとの間にとる余白
 	static inline const float kMargin = 0.05f;
@@ -400,11 +400,36 @@ private:
 	// ノックバック方向
 	float knockBackDirection_ = 0.0f;
 
-	// タイマー
-	float knockBackTimer_ = 0.0f;	
+	// ノックバック開始時の上向き速度
+	static constexpr float kKnockBackJumpSpeed = 0.28f;
 
-	static constexpr float kKnockBackTime = 0.2f;
-	static constexpr float kKnockBackSpeed = 1.2f;
+	// ノックバック経過時間
+	float knockBackTimer_ = 0.0f;
+
+	// ノックバック時間
+	static constexpr float kKnockBackTime = 0.20f;
+
+	// 目標とするノックバック距離
+	static constexpr float kKnockBackDistance = kWidth * 4.0f;
+
+	// 目標距離から計算した1フレームの移動速度
+	static constexpr float kKnockBackSpeed = kKnockBackDistance / (kKnockBackTime * 60.0f);
+
+	/*--------------- 被ダメージ後の無敵 ---------------*/
+	// 無敵中か
+	bool isInvincible_ = false;
+
+	// 無敵時間の残り
+	float invincibleTimer_ = 0.0f;
+
+	// ノックバック終了後の無敵時間
+	static constexpr float kInvincibleTime = 3.0f;
+
+	// 明滅が一周する時間
+	static constexpr float kInvincibleBlinkCycle = 0.35f;
+
+	// 明滅中の最低透明度
+	static constexpr float kInvincibleMinAlpha = 0.55f;
 
 	/*--------------- 武器モデル ---------------*/
 	// 攻撃エフェクトモデル

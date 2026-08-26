@@ -1,0 +1,2 @@
+﻿#include "GameResult.h"
+

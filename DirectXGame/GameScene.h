@@ -2,8 +2,8 @@
 #include "CameraController.h"
 #include "DeathParticles.h"
 #include "Enemy.h"
-//#include "ShieldEnemy.h"
 #include "Fade.h"
+#include "GameResult.h"
 #include "HitEffect.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
@@ -114,9 +114,14 @@ private:
 	// カメラコントローラ
 	CameraController* camaraController_ = nullptr;
 
+
 	/*-------------------- デバッグ --------------------*/
 	// デバッグカメラ有効
 	bool isDebugCameraActive_ = false;
+
+	/*-------------------- ゲームの終了判定 --------------------*/
+	// ゲーム終了結果
+	GameResult gameResult_ = GameResult::kNone;
 
 	/*-------------------- フェード用 --------------------*/
 	// デバッグカメラ
@@ -166,9 +171,14 @@ public:
 	// スタンした敵の周囲にいる通常敵を押し出す
 	void PushEnemiesAroundStunned(Enemy* stunnedEnemy);
 
+	// マップのブロック配置からカメラ移動範囲を計算
+	CameraController::Rect CalculateCameraMovableArea();
+
 	// フェーズの切り替え
 	void ChangePhase();
 
 	/*-------------------- アクセッサ --------------------*/
 	bool GetIsFinished() const { return finished_; }
+
+	GameResult GetGameResult() const { return gameResult_; }
 };

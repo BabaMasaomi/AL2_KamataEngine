@@ -157,14 +157,20 @@ void GameScene::Initialize() {
 	// 追従対象をセット
 	camaraController_->SetTarget(player_);
 
-	// 移動範囲を指定
-	camaraController_->SetMovableArea(CameraController::Rect{20.0f, 180.0f, 10.0f, 200.0f});
+	// 現在読み込んでいるマップから移動範囲を計算
+	CameraController::Rect cameraArea = CalculateCameraMovableArea();
+
+	camaraController_->SetMovableArea(cameraArea);
 
 	// リセット(瞬間合わせ)
 	camaraController_->Reset();
 
 	// デバッグカメラの生成
 	debugCamera_ = new DebugCamera(1280, 720);
+
+	/*-------------------- ゲームの終了判定 --------------------*/
+	finished_ = false;
+	gameResult_ = GameResult::kNone;
 
 	/*--------------- フェード ---------------*/
 	fade_ = new Fade();
@@ -764,7 +770,7 @@ void GameScene::ResolveEnemyOverlaps() {
 	}
 }
 
-/*-------------------- // スタンした敵の周囲にいる通常敵を押し出す --------------------*/
+/*-------------------- スタンした敵の周囲にいる通常敵を押し出す --------------------*/
 void GameScene::PushEnemiesAroundStunned(Enemy* stunnedEnemy) {
 
 	if (!stunnedEnemy) {
@@ -814,6 +820,85 @@ void GameScene::PushEnemiesAroundStunned(Enemy* stunnedEnemy) {
 	}
 }
 
+/*-------------------- マップのブロック配置からカメラ移動範囲を計算 --------------------*/
+CameraController::Rect GameScene::CalculateCameraMovableArea() {
+	bool foundBlock = false;
+
+	float mapLeft = 0.0f;
+	float mapRight = 0.0f;
+	float mapBottom = 0.0f;
+	float mapTop = 0.0f;
+
+	for (uint32_t y = 0; y < MapChipField::kNumBlockVertical; ++y) {
+
+		for (uint32_t x = 0; x < MapChipField::kNumBlockHorizontal; ++x) {
+
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) != MapChipType::kBlock) {
+				continue;
+			}
+
+			MapChipField::Rect blockRect = mapChipField_->GetRectByIndex(x, y);
+
+			if (!foundBlock) {
+				mapLeft = blockRect.left;
+				mapRight = blockRect.right;
+				mapBottom = blockRect.bottom;
+				mapTop = blockRect.top;
+
+				foundBlock = true;
+				continue;
+			}
+
+			mapLeft = (std::min)(mapLeft, blockRect.left);
+
+			mapRight = (std::max)(mapRight, blockRect.right);
+
+			mapBottom = (std::min)(mapBottom, blockRect.bottom);
+
+			mapTop = (std::max)(mapTop, blockRect.top);
+		}
+	}
+
+	if (!foundBlock) {
+		return CameraController::Rect{0.0f, 0.0f, 0.0f, 0.0f};
+	}
+
+	/*
+	 * 現在のカメラ距離Z=-30における、
+	 * おおよその表示範囲。
+	 */
+	constexpr float kCameraHalfWidth = 21.0f;
+	constexpr float kCameraHalfHeight = kCameraHalfWidth * 9.0f / 16.0f;
+
+	float cameraLeft = mapLeft + kCameraHalfWidth;
+	float cameraRight = mapRight - kCameraHalfWidth;
+
+	float cameraBottom = mapBottom + kCameraHalfHeight;
+	float cameraTop = mapTop - kCameraHalfHeight;
+
+	// 画面より小さいマップにも対応
+	if (cameraLeft > cameraRight) {
+		float center = (mapLeft + mapRight) * 0.5f;
+
+		cameraLeft = center;
+		cameraRight = center;
+	}
+
+	if (cameraBottom > cameraTop) {
+		float center = (mapBottom + mapTop) * 0.5f;
+
+		cameraBottom = center;
+		cameraTop = center;
+	}
+
+	return CameraController::Rect{
+	    cameraLeft,
+	    cameraRight,
+	    cameraBottom,
+	    cameraTop,
+	};
+}
+
 /*-------------------- フェーズの切り替え --------------------*/
 void GameScene::ChangePhase() {
 	switch (phase_) {
@@ -824,33 +909,40 @@ void GameScene::ChangePhase() {
 		break;
 
 	case GameScene::Phase::kPlay:
-		// ゲームプレイフェーズの処理
+		// 死亡を優先する
 		if (player_->GetIsDead()) {
-			// 死亡演出フェーズに切り替え
+			gameResult_ = GameResult::kGameOver;
+
 			phase_ = GameScene::Phase::kDeath;
 
-			// 自キャラの座標を取得
 			const Vector3 deathParticlesPosition = player_->GetWorldPos();
 
-			// 自機の座標を飛ばす	(強硬策だと思うので後で修正)
 			player_->SetWorldPos({-100.0f, -100.0f, -100.0f});
+
 			player_->Update();
 
-			// 自キャラの座標にパーティクルをセット
 			deathParticles_ = new DeathParticles();
 			deathParticles_->Initialize(modelParticles_, &camera_, deathParticlesPosition);
+
+		} else if (enemies_.empty()) {
+			// 3体すべて削除されたらクリア
+			gameResult_ = GameResult::kClear;
+
+			phase_ = GameScene::Phase::kFadeOut;
+			fade_->Start(Fade::Status::FadeOut, 0.75f);
 		}
 
 		break;
 
 	case GameScene::Phase::kDeath:
-		// デス演出フェーズの処理
 		if (deathParticles_ && deathParticles_->GetIsFinished()) {
+
 			phase_ = GameScene::Phase::kFadeOut;
+
 			fade_->Start(Fade::Status::FadeOut, 0.5f);
 		}
-
 		break;
+
 	case GameScene::Phase::kFadeOut:
 		if (fade_->IsFinished()) {
 			// 終了フラグを立てる

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <numbers>
+#include <cmath>
 
 // コンストラクタ&デストラクタ
 Player::Player() {}
@@ -46,12 +47,27 @@ void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const 
 
 	hp_ = kMaxHp;
 	isDead_ = false;
+
+	isInvincible_ = false;
+	invincibleTimer_ = 0.0f;
 }
 
 /// <summary>
 /// 自機の更新
 /// </summary>
 void Player::Update() {
+	const float deltaTime = 1.0f / 60.0f;
+
+	/*========== 無敵時間更新 ==========*/
+	if (isInvincible_) {
+		invincibleTimer_ -= deltaTime;
+
+		if (invincibleTimer_ <= 0.0f) {
+			invincibleTimer_ = 0.0f;
+			isInvincible_ = false;
+		}
+	}
+
 	// 振る舞いを変更する
 	if (behaiviorRequest_ != Behavior::kUnKnown) {
 		behaivior_ = behaiviorRequest_;
@@ -493,27 +509,39 @@ void Player::BehaviorAttackUpdate() {
 /// ノックバック初期化
 /// </summary>
 void Player::BehaviorKnockBackInitialize() {
-	// タイマー初期化
 	knockBackTimer_ = 0.0f;
-	// 速度初期化
+
 	velocity_.x = 0.0f;
-	velocity_.y = 0.0f;
+
+	// ノックバック開始時に少し浮かせる
+	velocity_.y = kKnockBackJumpSpeed;
 }
 
 /// <summary>
 /// ノックバック更新
 /// </summary>
 void Player::BehaviorKnockBackUpdate() {
-	// 攻撃を終了させる
+	const float deltaTime = 1.0f / 60.0f;
+
+	// 攻撃を終了
 	EndAttack();
-	// ノックバック時間を計測
-	knockBackTimer_ += 1.0f / 60.0f;
-	// ノックバック方向に移動
+
+	knockBackTimer_ += deltaTime;
+
+	// 敵と反対方向へ移動
 	velocity_.x = knockBackDirection_ * kKnockBackSpeed;
-	// 少し浮かせる
-	velocity_.y = 0.15f;
-	// ノックバック時間が経過したら通常行動に戻す
+
+	// 横方向中心のノックバックにする
+	velocity_.y -= kGravityAcceleration;
+	velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
+
 	if (knockBackTimer_ >= kKnockBackTime) {
+		velocity_.x = 0.0f;
+
+		// ノックバック終了後から3秒間無敵
+		isInvincible_ = true;
+		invincibleTimer_ = kInvincibleTime;
+
 		behaiviorRequest_ = Behavior::kRoot;
 	}
 }
@@ -522,10 +550,22 @@ void Player::BehaviorKnockBackUpdate() {
 /// 自機の描画
 /// </summary>
 void Player::Draw() {
-	// 自機を描画
+	float playerAlpha = 1.0f;
+
+	if (isInvincible_) {
+		constexpr float kTwoPi = std::numbers::pi_v<float> * 2.0f;
+
+		// 0～1を滑らかに往復
+		float wave = std::sin(invincibleTimer_ / kInvincibleBlinkCycle * kTwoPi) * 0.5f + 0.5f;
+
+		// 最低透明度から1.0の間で変化
+		playerAlpha = kInvincibleMinAlpha + (1.0f - kInvincibleMinAlpha) * wave;
+	}
+
+	// 描画直前に透明度を設定
+	model_->SetAlpha(playerAlpha);
 	model_->Draw(worldTransform_, *camera_);
 
-	// 攻撃エフェクトを描画
 	if (isAttackEffect_) {
 		modelAttack_->Draw(worldTransformAttack_, *camera_);
 	}
@@ -1007,7 +1047,7 @@ bool Player::IsAttack() {
 bool Player::CanAttackEnemy() const { return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kActive && isAttackImpactFrame_; }
 
 // ダメージを受けるか
-bool Player::CanReceiveDamage() const { return !isDead_ && behaivior_ != Behavior::kKnockBack; }
+bool Player::CanReceiveDamage() const { return !isDead_ && !isInvincible_ && behaivior_ != Behavior::kKnockBack && behaiviorRequest_ != Behavior::kKnockBack; }
 
 // ノックバック要求を受け取る
 void Player::RequestKnockBack(float direction) {
