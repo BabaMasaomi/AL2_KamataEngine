@@ -188,6 +188,9 @@ public:
 
 	EnemyPurpose GetPurpose() const { return purpose_; }
 
+	// 敵の高さを取得
+	static float GetHeight() { return kHeight; }
+
 	// 小ノックバックの方向
 	float GetHitKnockBackDirection() const { return hitKnockBackDirection_; }
 

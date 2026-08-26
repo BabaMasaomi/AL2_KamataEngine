@@ -627,13 +627,23 @@ void GameScene::SpawnEnemy(const Vector3& position) {
 }
 /*-------------------- 画面外の補充位置を探す --------------------*/
 Vector3 GameScene::FindReinforcementSpawnPosition() {
-
 	constexpr float kCameraHalfWidth = 21.0f;
 	constexpr float kOutsideMargin = 2.0f;
 
-	std::vector<Vector3> candidates;
+	// 地形へ少しめり込まないための余白
+	constexpr float kSpawnHeightMargin = 0.05f;
 
-	// 実際に使用されている右端を探す
+	// 既存の敵から離す距離
+	constexpr float kMinimumSpawnDistance = 5.0f;
+
+	// 浮遊足場を選ぶ確率
+	constexpr float kElevatedSpawnRate = 0.70f;
+
+	std::vector<Vector3> elevatedCandidates;
+	std::vector<Vector3> groundCandidates;
+
+	/*========== 実際に使われている右端を探す ==========*/
+
 	uint32_t rightBoundaryIndex = 0;
 
 	for (uint32_t y = 0; y < MapChipField::kNumBlockVertical; ++y) {
@@ -647,53 +657,87 @@ Vector3 GameScene::FindReinforcementSpawnPosition() {
 		}
 	}
 
-	// 左右の外壁を候補から除外
-	for (uint32_t x = 1; x < rightBoundaryIndex; ++x) {
+	/*========== 足場の上面を出現候補にする ==========*/
 
-		Vector3 candidatePosition = mapChipField_->GetMapChipPositionByIndex(x, 17);
+	/*
+	 * y = 0はマップ上端の外壁なので除外。
+	 * 上側のマスを調べるため、yは1から開始する。
+	 */
+	for (uint32_t y = 1; y < MapChipField::kNumBlockVertical; ++y) {
 
-		// 画面内なら候補にしない
-		float cameraDistance = std::abs(candidatePosition.x - camera_.translation_.x);
+		for (uint32_t x = 2; x + 1 < rightBoundaryIndex; ++x) {
 
-		if (cameraDistance <= kCameraHalfWidth + kOutsideMargin) {
-			continue;
-		}
+			// 現在位置がブロックでなければ床ではない
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) != MapChipType::kBlock) {
 
-		/*
-		 * 最上段と地面を除き、
-		 * この列に浮遊足場がないか確認する。
-		 */
-		bool hasFloatingPlatform = false;
+				continue;
+			}
 
-		for (uint32_t y = 1; y < MapChipField::kNumBlockVertical - 1; ++y) {
+			// 1マス上が空白でなければ、その上には立てない
+			if (mapChipField_->GetMapChipTypeByIndex(x, y - 1) != MapChipType::kBlank) {
 
-			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kBlock) {
+				continue;
+			}
 
-				hasFloatingPlatform = true;
-				break;
+			/*
+			 * 足場の端への出現を避ける。
+			 * 左右もブロックになっている場所だけを使う。
+			 */
+			bool hasLeftFloor = mapChipField_->GetMapChipTypeByIndex(x - 1, y) == MapChipType::kBlock;
+
+			bool hasRightFloor = mapChipField_->GetMapChipTypeByIndex(x + 1, y) == MapChipType::kBlock;
+
+			if (!hasLeftFloor || !hasRightFloor) {
+				continue;
+			}
+
+			MapChipField::Rect floorRect = mapChipField_->GetRectByIndex(x, y);
+
+			Vector3 candidatePosition = {
+			    mapChipField_->GetMapChipPositionByIndex(x, y).x,
+
+			    floorRect.top + Enemy::GetHeight() * 0.5f + kSpawnHeightMargin,
+
+			    0.0f,
+			};
+
+			// 画面内に突然出現しないようにする
+			float cameraDistance = std::abs(candidatePosition.x - camera_.translation_.x);
+
+			if (cameraDistance <= kCameraHalfWidth + kOutsideMargin) {
+
+				continue;
+			}
+
+			/*
+			 * 最下段のブロックなら地面、
+			 * それ以外なら浮遊足場として分類する。
+			 */
+			if (y == MapChipField::kNumBlockVertical - 1) {
+
+				groundCandidates.push_back(candidatePosition);
+
+			} else {
+
+				elevatedCandidates.push_back(candidatePosition);
 			}
 		}
-
-		if (hasFloatingPlatform) {
-			continue;
-		}
-
-		candidates.push_back(candidatePosition);
 	}
 
-	if (!candidates.empty()) {
+	/*========== 候補をランダムに並べる ==========*/
 
-		// 乱数生成器
-		static std::random_device randomDevice;
-		static std::mt19937 randomEngine(randomDevice());
+	static std::random_device randomDevice;
+	static std::mt19937 randomEngine(randomDevice());
 
-		// 候補の並び順を毎回ランダムにする
-		std::shuffle(candidates.begin(), candidates.end(), randomEngine);
+	std::shuffle(elevatedCandidates.begin(), elevatedCandidates.end(), randomEngine);
 
-		// 既にいる敵との最低間隔
-		constexpr float kMinimumSpawnDistance = 6.0f;
+	std::shuffle(groundCandidates.begin(), groundCandidates.end(), randomEngine);
 
-		// 他の敵から十分に離れた候補を探す
+	/*========== 既存の敵との距離を確認 ==========*/
+
+	auto findSeparatedCandidate = [this, kMinimumSpawnDistance](const std::vector<Vector3>& candidates, Vector3& result) {
+		const float minimumDistanceSquared = kMinimumSpawnDistance * kMinimumSpawnDistance;
+
 		for (const Vector3& candidate : candidates) {
 
 			bool isTooClose = false;
@@ -703,30 +747,84 @@ Vector3 GameScene::FindReinforcementSpawnPosition() {
 					continue;
 				}
 
-				const float differenceX = candidate.x - enemy->GetWorldPos().x;
+				Vector3 enemyPosition = enemy->GetWorldPos();
 
-				if (std::abs(differenceX) < kMinimumSpawnDistance) {
+				float differenceX = candidate.x - enemyPosition.x;
+
+				float differenceY = candidate.y - enemyPosition.y;
+
+				float distanceSquared = differenceX * differenceX + differenceY * differenceY;
+
+				if (distanceSquared < minimumDistanceSquared) {
+
 					isTooClose = true;
 					break;
 				}
 			}
 
 			if (!isTooClose) {
-				return candidate;
+				result = candidate;
+				return true;
 			}
 		}
 
-		/*
-		 * 十分に離れた場所がなければ、
-		 * ランダムに並べ替えた最初の候補を使う。
-		 */
-		return candidates.front();
+		return false;
+	};
+
+	/*========== 足場と地面のどちらを優先するか決定 ==========*/
+
+	std::uniform_real_distribution<float> rateDistribution(0.0f, 1.0f);
+
+	bool preferElevated = rateDistribution(randomEngine) < kElevatedSpawnRate;
+
+	Vector3 selectedPosition{};
+
+	if (preferElevated) {
+		// まず浮遊足場を探す
+		if (findSeparatedCandidate(elevatedCandidates, selectedPosition)) {
+
+			return selectedPosition;
+		}
+
+		// 見つからなければ地面
+		if (findSeparatedCandidate(groundCandidates, selectedPosition)) {
+
+			return selectedPosition;
+		}
+
+	} else {
+		// まず地面を探す
+		if (findSeparatedCandidate(groundCandidates, selectedPosition)) {
+
+			return selectedPosition;
+		}
+
+		// 見つからなければ浮遊足場
+		if (findSeparatedCandidate(elevatedCandidates, selectedPosition)) {
+
+			return selectedPosition;
+		}
 	}
 
 	/*
-	 * 画面外に安全な場所がなかった場合の予備位置。
-	 * プレイヤーから遠い左右どちらかへ配置する。
+	 * 敵同士の距離条件を満たす場所がなかった場合も、
+	 * 地形上の候補があるならそこから選ぶ。
 	 */
+	if (preferElevated && !elevatedCandidates.empty()) {
+
+		return elevatedCandidates.front();
+	}
+
+	if (!groundCandidates.empty()) {
+		return groundCandidates.front();
+	}
+
+	if (!elevatedCandidates.empty()) {
+		return elevatedCandidates.front();
+	}
+
+	/*========== 最終的な予備位置 ==========*/
+
 	float direction = player_->GetWorldPos().x < camera_.translation_.x ? 1.0f : -1.0f;
 
 	return {
