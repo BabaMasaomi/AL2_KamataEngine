@@ -155,6 +155,9 @@ void Enemy::Update() {
 	// 通常攻撃による小ノックバック
 	UpdateHitKnockBack();
 
+	// ノックバック後の硬直
+	UpdateHitRecovery();
+
 	// 行列を定数バッファに転送
 	transform_.worldMatrixUpdate(worldTransform_);
 }
@@ -254,7 +257,8 @@ void Enemy::UpdateRootMapMovement() {
 	/*========== 横方向の移動と壁判定 ==========*/
 	float movementX = 0.0f;
 
-	if (!isHitKnockBack_) {
+	if (!isHitKnockBack_ && !isHitRecovery_) {
+
 		movementX = velocity_.x;
 	}
 
@@ -341,6 +345,151 @@ void Enemy::UpdateRootMapMovement() {
 			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
 
 			// 敵の下端を床の上面へ合わせる
+			float candidateY = rect.top + halfHeight + kRootMapMargin;
+
+			resolvedY = std::max(resolvedY, candidateY);
+
+			hitFloor = true;
+		}
+
+		if (hitFloor) {
+			nextY = resolvedY;
+			velocity_.y = 0.0f;
+			isOnGround_ = true;
+		}
+	}
+
+	worldTransform_.translation_.y = nextY;
+}
+
+// ノックバック終了後の硬直更新
+void Enemy::UpdateHitRecovery() {
+	if (!isHitRecovery_) {
+		return;
+	}
+
+	const float deltaTime = 1.0f / 60.0f;
+
+	hitRecoveryTimer_ -= deltaTime;
+
+	// 硬直中は横移動を停止
+	velocity_.x = 0.0f;
+
+	if (hitRecoveryTimer_ <= 0.0f) {
+		hitRecoveryTimer_ = 0.0f;
+		isHitRecovery_ = false;
+	}
+}
+
+// スタン中の重力・床・天井判定
+void Enemy::UpdateStunnedMapMovement() {
+	/*========== マップがない場合 ==========*/
+
+	if (!mapChipField_) {
+		velocity_.y -= kGravityAcceleration;
+
+		velocity_.y = std::max(velocity_.y, -kMaxFallSpeed);
+
+		worldTransform_.translation_.y += velocity_.y;
+
+		isOnGround_ = false;
+		return;
+	}
+
+	const float halfWidth = kWidth / 2.0f;
+
+	const float halfHeight = kHeight / 2.0f;
+
+	/*========== 重力 ==========*/
+
+	velocity_.y -= kGravityAcceleration;
+
+	velocity_.y = std::max(velocity_.y, -kMaxFallSpeed);
+
+	float nextY = worldTransform_.translation_.y + velocity_.y;
+
+	isOnGround_ = false;
+
+	/*========== 上昇中の天井判定 ==========*/
+
+	if (velocity_.y > 0.0f) {
+		Vector3 checkPositions[] = {
+		    {
+             worldTransform_.translation_.x - halfWidth + kRootMapMargin,
+
+             nextY + halfHeight,
+
+             worldTransform_.translation_.z,
+		     },
+		    {
+             worldTransform_.translation_.x + halfWidth - kRootMapMargin,
+
+             nextY + halfHeight,
+
+             worldTransform_.translation_.z,
+		     },
+		};
+
+		bool hitCeiling = false;
+		float resolvedY = nextY;
+
+		for (const Vector3& position : checkPositions) {
+
+			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+
+			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+				continue;
+			}
+
+			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+
+			float candidateY = rect.bottom - halfHeight - kRootMapMargin;
+
+			resolvedY = std::min(resolvedY, candidateY);
+
+			hitCeiling = true;
+		}
+
+		if (hitCeiling) {
+			nextY = resolvedY;
+			velocity_.y = 0.0f;
+		}
+	}
+
+	/*========== 落下中の床判定 ==========*/
+
+	else {
+		Vector3 checkPositions[] = {
+		    {
+             worldTransform_.translation_.x - halfWidth + kRootMapMargin,
+
+             nextY - halfHeight,
+
+             worldTransform_.translation_.z,
+		     },
+		    {
+             worldTransform_.translation_.x + halfWidth - kRootMapMargin,
+
+             nextY - halfHeight,
+
+             worldTransform_.translation_.z,
+		     },
+		};
+
+		bool hitFloor = false;
+		float resolvedY = nextY;
+
+		for (const Vector3& position : checkPositions) {
+
+			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+
+			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+				continue;
+			}
+
+			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+
+			// 敵の下端を床上面へ合わせる
 			float candidateY = rect.top + halfHeight + kRootMapMargin;
 
 			resolvedY = std::max(resolvedY, candidateY);
@@ -1183,6 +1332,41 @@ bool Enemy::IsTakeoffReachableOnCurrentPlatform(float takeoffX) const {
 	return takeoffX >= reachableLeft && takeoffX <= reachableRight;
 }
 
+// 敵同士の重なりを解消するために横移動する
+// 実際に移動できた量を返す
+float Enemy::MoveForEnemySeparation(float movementX) {
+
+	if (!CanResolveEnemyOverlap() || std::abs(movementX) < 0.001f) {
+		return 0.0f;
+	}
+
+	float beforeX = worldTransform_.translation_.x;
+
+	/*
+	 * 既存の地形判定を利用して移動する。
+	 * これにより、押された敵が壁へ入り込まない。
+	 */
+	MoveHorizontalWithMap(movementX);
+
+	float actualMovementX = worldTransform_.translation_.x - beforeX;
+
+	/*
+	 * 通常敵が進行方向と反対へ押し戻された場合、
+	 * そのフレームの追跡移動を停止する。
+	 */
+	if (behavior_ == BehaviorEnemy::kRoot && !IsUsingPlatformRoute() && velocity_.x * movementX < 0.0f) {
+		velocity_.x = 0.0f;
+	}
+
+	/*
+	 * Enemy::Update()後に位置を変更するため、
+	 * 描画用行列もここで更新する。
+	 */
+	transform_.worldMatrixUpdate(worldTransform_);
+
+	return actualMovementX;
+}
+
 // 通常行動初期化
 void Enemy::BehaviorRootInitialize() {
 	isCollisionDisenabled_ = false;
@@ -1291,8 +1475,11 @@ void Enemy::BehaviorRootUpdate() {
 	}
 
 	/*========== 既存の追跡処理 ==========*/
-	if (!isHitKnockBack_) {
+	if (!isHitKnockBack_ && !isHitRecovery_) {
 		UpdateChaseDirection();
+
+	} else {
+		velocity_.x = 0.0f;
 	}
 
 	UpdateFacingDirection();
@@ -1333,6 +1520,9 @@ void Enemy::BehaviorDeathInitialize() {
 
 	// 死亡演出中はすべての判定を無効化
 	isCollisionDisenabled_ = true;
+
+	isHitRecovery_ = false;
+	hitRecoveryTimer_ = 0.0f;
 }
 
 // 死亡アクション更新
@@ -1396,19 +1586,22 @@ void Enemy::BehaviorStunnedInitialize() {
 
 	velocity_ = {};
 
-	// 攻撃を受けるAABBは残す
+	isHitKnockBack_ = false;
+	hitKnockBackTimer_ = 0.0f;
+
+	isHitRecovery_ = false;
+	hitRecoveryTimer_ = 0.0f;
+
 	isCollisionDisenabled_ = false;
 
-	// 通常移動は停止
-	velocity_ = {};
-
-	isCollisionDisenabled_ = false;
-
-	// 上を向く
 	worldTransform_.rotation_.x = kStunnedLookUpAngle * std::numbers::pi_v<float> / 180.0f;
 
-	// 震えを中央から開始
 	worldTransform_.rotation_.z = 0.0f;
+
+	// 周囲の通常敵を軽く弾く
+	if (gameScene_) {
+		gameScene_->PushEnemiesAroundStunned(this);
+	}
 }
 
 // スタン更新
@@ -1418,6 +1611,11 @@ void Enemy::BehaviorStunnedUpdate() {
 	stunnedTimer_ += deltaTime;
 	stunnedMotionTimer_ += deltaTime;
 
+	/*========== 重力・床・足場判定 ==========*/
+	UpdateStunnedMapMovement();
+
+	/*========== スタン演出 ==========*/
+
 	// 上向き角度を維持
 	worldTransform_.rotation_.x = kStunnedLookUpAngle * std::numbers::pi_v<float> / 180.0f;
 
@@ -1426,8 +1624,11 @@ void Enemy::BehaviorStunnedUpdate() {
 
 	worldTransform_.rotation_.z = shakeDegree * std::numbers::pi_v<float> / 180.0f;
 
+	/*========== スタン終了 ==========*/
+
 	if (stunnedTimer_ >= kStunnedTime) {
 		stunHitCount_ = 0;
+
 		behaviorRequest_ = BehaviorEnemy::kRoot;
 	}
 }
@@ -1464,6 +1665,9 @@ void Enemy::BehaviorBlownAwayInitialize() {
 	stunHitCount_ = 0;
 	// 地形や敵とのAABB判定は残す
 	isCollisionDisenabled_ = false;
+
+	isHitRecovery_ = false;
+	hitRecoveryTimer_ = 0.0f;
 }
 
 // 吹っ飛び更新
@@ -1512,7 +1716,6 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	const float halfHeight = kHeight / 2.0f;
 
 	/*========== X方向の移動・壁判定 ==========*/
-
 	float nextX = worldTransform_.translation_.x + blownAwayVelocity_.x;
 
 	if (blownAwayVelocity_.x > 0.0f) {
@@ -1613,11 +1816,44 @@ void Enemy::BehaviorBlownAwayUpdate() {
 		}
 	}
 
+	/*========== 画面左右端との反射 ==========*/
+	if (camera_) {
+		// 敵全体が画面内に収まる範囲
+		float screenLeft = camera_->translation_.x - kScreenHalfWidth + halfWidth + kScreenBounceMargin;
+
+		float screenRight = camera_->translation_.x + kScreenHalfWidth - halfWidth - kScreenBounceMargin;
+
+		/*========== 左端 ==========*/
+		if (nextX < screenLeft) {
+			nextX = screenLeft;
+
+			// 左方向へ進んでいた場合だけ反射
+			if (blownAwayVelocity_.x < 0.0f) {
+				blownAwayVelocity_.x = -blownAwayVelocity_.x;
+
+				hitX = true;
+				bouncedThisFrame = true;
+			}
+		}
+
+		/*========== 右端 ==========*/
+		else if (nextX > screenRight) {
+			nextX = screenRight;
+
+			// 右方向へ進んでいた場合だけ反射
+			if (blownAwayVelocity_.x > 0.0f) {
+				blownAwayVelocity_.x = -blownAwayVelocity_.x;
+
+				hitX = true;
+				bouncedThisFrame = true;
+			}
+		}
+	}
+
 	// めり込みを解消したX座標を反映
 	worldTransform_.translation_.x = nextX;
 
 	/*========== Y方向の移動・床天井判定 ==========*/
-
 	float nextY = worldTransform_.translation_.y + blownAwayVelocity_.y;
 
 	bool hitFloor = false;
@@ -1669,6 +1905,16 @@ void Enemy::BehaviorBlownAwayUpdate() {
 
 			bouncedThisFrame = true;
 		}
+
+		if (hitCeiling) {
+			nextY = resolvedY;
+
+			blownAwayVelocity_.y = -blownAwayVelocity_.y;
+
+			hitY = true;
+			bouncedThisFrame = true;
+		}
+
 	} else if (blownAwayVelocity_.y < 0.0f) {
 		// 落下中：左下と右下を確認
 		Vector3 leftBottom = {
@@ -1714,6 +1960,51 @@ void Enemy::BehaviorBlownAwayUpdate() {
 			blownAwayVelocity_.y = -blownAwayVelocity_.y;
 
 			bouncedThisFrame = true;
+		}
+
+		if (hitFloor) {
+			nextY = resolvedY;
+
+			blownAwayVelocity_.y = -blownAwayVelocity_.y;
+
+			hitY = true;
+			bouncedThisFrame = true;
+		}
+
+	}		
+
+	/*========== 画面上下端との反射 ==========*/
+	if (camera_) {
+		float screenBottom = camera_->translation_.y - kScreenHalfHeight + halfHeight + kScreenBounceMargin;
+
+		float screenTop = camera_->translation_.y + kScreenHalfHeight - halfHeight - kScreenBounceMargin;
+
+		/*========== 下端 ==========*/
+
+		if (nextY < screenBottom) {
+			nextY = screenBottom;
+
+			// 下方向へ進んでいた場合だけ反射
+			if (blownAwayVelocity_.y < 0.0f) {
+				blownAwayVelocity_.y = -blownAwayVelocity_.y;
+
+				hitY = true;
+				bouncedThisFrame = true;
+			}
+		}
+
+		/*========== 上端 ==========*/
+
+		else if (nextY > screenTop) {
+			nextY = screenTop;
+
+			// 上方向へ進んでいた場合だけ反射
+			if (blownAwayVelocity_.y > 0.0f) {
+				blownAwayVelocity_.y = -blownAwayVelocity_.y;
+
+				hitY = true;
+				bouncedThisFrame = true;
+			}
 		}
 	}
 
@@ -1828,7 +2119,7 @@ void Enemy::UpdateHitKnockBack() {
 	float t = std::clamp(hitKnockBackTimer_ / kHitKnockBackTime, 0.0f, 1.0f);
 
 	// 最初は速く、徐々に減速
-	float speed = kHitKnockBackSpeed * (1.0f - t);
+	float speed = currentHitKnockBackSpeed_ * (1.0f - t);
 
 	float movementX = hitKnockBackDirection_ * speed;
 
@@ -1839,6 +2130,14 @@ void Enemy::UpdateHitKnockBack() {
 	if (t >= 1.0f || hitWall) {
 		isHitKnockBack_ = false;
 		hitKnockBackTimer_ = 0.0f;
+
+		// ノックバック後の硬直開始
+		if (behavior_ == BehaviorEnemy::kRoot) {
+			isHitRecovery_ = true;
+			hitRecoveryTimer_ = kHitRecoveryTime;
+
+			velocity_.x = 0.0f;
+		}
 	}
 }
 
@@ -1950,8 +2249,14 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 	if (!defeated) {
 		// 小ノックバック
 		hitKnockBackDirection_ = hitDirection;
+
+		currentHitKnockBackSpeed_ = kHitKnockBackSpeed;
+
 		isHitKnockBack_ = true;
 		hitKnockBackTimer_ = 0.0f;
+
+		isHitRecovery_ = false;
+		hitRecoveryTimer_ = 0.0f;
 
 		// 通常攻撃だけスタン値を蓄積
 		if (attackType == AttackType::kNormal && behavior_ == BehaviorEnemy::kRoot) {
@@ -1980,6 +2285,24 @@ bool Enemy::CanDamagePlayer() const {
 	// 通常行動中かつ、
 	// 攻撃による小ノックバック中でなければ危険
 	return behavior_ == BehaviorEnemy::kRoot && !isHitKnockBack_;
+}
+
+// スタン衝撃による弱いノックバック開始
+void Enemy::StartStunShockwaveKnockBack(float direction) {
+
+	if (!CanReceiveStunShockwave()) {
+		return;
+	}
+
+	hitKnockBackDirection_ = direction >= 0.0f ? 1.0f : -1.0f;
+
+	currentHitKnockBackSpeed_ = kStunShockwaveKnockBackSpeed;
+
+	isHitKnockBack_ = true;
+	hitKnockBackTimer_ = 0.0f;
+
+	isHitRecovery_ = false;
+	hitRecoveryTimer_ = 0.0f;
 }
 
 // 吹き飛び中で、他の敵へ攻撃できるか

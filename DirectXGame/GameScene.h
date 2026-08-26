@@ -151,6 +151,12 @@ public:
 	// AABB同士の当たり判定
 	bool CheckAABBCollision(const AABB& aabb1, const AABB& aabb2);
 
+	// 通常・スタン状態の敵同士の重なりを解消
+	void ResolveEnemyOverlaps();
+
+	// スタンした敵の周囲にいる通常敵を押し出す
+	void PushEnemiesAroundStunned(Enemy* stunnedEnemy);
+
 	// フェーズの切り替え
 	void ChangePhase();
 

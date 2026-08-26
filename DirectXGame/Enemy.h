@@ -109,7 +109,16 @@ public:
 	bool IsCollisionDisEnabled() const;
 
 	// プレイヤーに接触ダメージを与えられるか
-	bool CanDamagePlayer() const;
+	bool CanDamagePlayer() const;	
+
+	// スタン衝撃による弱いノックバックを受けられるか
+	bool CanReceiveStunShockwave() const { return behavior_ == BehaviorEnemy::kRoot && !isHitKnockBack_ && !isHitRecovery_ && !isDead_; }
+
+	// スタン衝撃による弱いノックバック開始
+	void StartStunShockwaveKnockBack(float direction);
+
+	// ノックバック後の硬直中か
+	bool IsHitRecovery() const { return isHitRecovery_; }
 
 	// 吹き飛び中で、他の敵へ攻撃できるか
 	bool CanHitOtherEnemy() const;
@@ -122,6 +131,28 @@ public:
 
 	// 吹き飛んできた敵との衝突処理
 	void OnCollisionBlownAwayEnemy(float attackDirection);
+
+	// 敵同士の重なり補正対象か
+	bool CanResolveEnemyOverlap() const {
+		if (isHitKnockBack_ || isHitRecovery_) {
+			return false;
+		}
+
+		return behavior_ == BehaviorEnemy::kRoot || behavior_ == BehaviorEnemy::kStunned;
+	}
+
+	// スタン中か
+	bool IsStunned() const { return behavior_ == BehaviorEnemy::kStunned; }
+
+	// 敵同士の重なりを解消するために横移動する
+	// 実際に移動できた量を返す
+	float MoveForEnemySeparation(float movementX);
+
+	// 足場間を移動するための特殊経路中か
+	bool IsUsingPlatformRoute() const {
+		return chaseJumpState_ == ChaseJumpState::kMoveToTakeoff || chaseJumpState_ == ChaseJumpState::kTakeoffPause || chaseJumpState_ == ChaseJumpState::kJumping ||
+		       chaseJumpState_ == ChaseJumpState::kMoveToDropEdge || chaseJumpState_ == ChaseJumpState::kDropping;
+	}
 
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
@@ -154,6 +185,12 @@ private:
 	// 通常状態での地形に沿った移動
 	void UpdateRootMapMovement();
 
+	// ノックバック終了後の硬直更新
+	void UpdateHitRecovery();
+
+	// スタン中の重力・床・天井判定
+	void UpdateStunnedMapMovement();
+
 	// プレイヤーの位置から移動方向を決める
 	void UpdateChaseDirection();
 
@@ -178,7 +215,7 @@ private:
 	bool HasFloorAhead(float direction) const;
 
 	// 指定したX座標まで現在の足場上を歩いて到達できるか
-	bool IsTakeoffReachableOnCurrentPlatform(float takeoffX) const;
+	bool IsTakeoffReachableOnCurrentPlatform(float takeoffX) const;	
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -276,17 +313,6 @@ private:
 	// 1マスが2.0なので、その半分
 	static constexpr float kChaseReplanHeightThreshold = 1.0f;
 
-	//// 直前に離れた足場の高さ
-	//float previousPlatformTopY_ = 0.0f;
-
-	//// 直前の足場を記録しているか
-	//bool hasPreviousPlatform_ = false;
-
-	//// 同じ足場へ戻る経路を避ける時間
-	//float platformRouteLockTimer_ = 0.0f;
-
-	//static constexpr float kPlatformRouteLockTime = 1.5f;
-
 	// 乗り移る足場上の着地目標X座標
 	float targetPlatformLandingX_ = 0.0f;
 
@@ -303,14 +329,8 @@ private:
 	// プレイヤーがこの高さ以上にいる場合にジャンプを検討
 	static constexpr float kJumpHeightThreshold = 1.0f;
 
-	//// 高い足場へ向けてジャンプを始める最大横距離
-	//static constexpr float kJumpHorizontalRange = 16.0f;
-
 	// 足場へ乗り移る際に予定しているジャンプ方向
 	float plannedJumpDirection_ = 0.0f;
-
-	//// 前方の壁を調べる距離
-	//static constexpr float kWallCheckDistance = 0.20f;
 
 	// 次のジャンプまでの待ち時間
 	float chaseJumpCooldownTimer_ = 0.0f;
@@ -416,6 +436,19 @@ private:
 	// ノックバック速度
 	static constexpr float kHitKnockBackSpeed = 1.18f;
 
+	// 今回のノックバックに使用する速度
+	float currentHitKnockBackSpeed_ = kHitKnockBackSpeed;
+
+	// ノックバック終了後の硬直中か
+	bool isHitRecovery_ = false;
+
+	// 硬直時間
+	float hitRecoveryTimer_ = 0.0f;
+	static constexpr float kHitRecoveryTime = 0.18f;
+
+	// スタン発生時に周囲へ与える弱いノックバック速度
+	static constexpr float kStunShockwaveKnockBackSpeed = 0.20f;
+
 	/*--------------- 直線吹き飛び ---------------*/
 	// 最初の吹っ飛び角度の最大最小
 	static constexpr float kInitialBlownAwayAngleMin = 5.0f;
@@ -448,6 +481,14 @@ private:
 	// 回転速度
 	static constexpr float kBlownAwayRotateSpeed = 0.3f;
 
+	// カメラ中心から画面左右端までの距離
+	static constexpr float kScreenHalfWidth = 21.0f;
+
+	// 16:9の画面なので、横幅から縦幅を計算
+	static constexpr float kScreenHalfHeight = kScreenHalfWidth * 9.0f / 16.0f;
+
+	// 画面端との間に取る余白
+	static constexpr float kScreenBounceMargin = 0.05f;
 
 	/*--------------- 吹っ飛び攻撃 ---------------*/
 	// 現在の飛行区間で敵へ命中できるか

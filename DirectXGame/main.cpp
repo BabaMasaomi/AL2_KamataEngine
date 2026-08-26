@@ -37,7 +37,7 @@ void DrawScene();
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	// エンジンの初期化
-	Initialize(L"LC1A_25_ババ_マサオミ_AL2_5-15");
+	Initialize(L"夏課題");
 
 	// DirectXCommonインスタンスを取得(画面描画に使用)
 	DirectXCommon* dxCoommon = DirectXCommon::GetInstance();

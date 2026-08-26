@@ -1,4 +1,7 @@
 ﻿#include "GameScene.h"
+#include <iterator>
+#include <algorithm>
+#include <cmath>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -183,6 +186,9 @@ void GameScene::Update() {
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
+
+			// 通常・スタン状態の敵同士の重なりを解消
+			ResolveEnemyOverlaps();
 		}
 
 		// カメラコントローラの更新
@@ -241,6 +247,9 @@ void GameScene::Update() {
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
+
+			// 通常・スタン状態の敵同士の重なりを解消
+			ResolveEnemyOverlaps();
 		}
 
 		// デスフラグの立った敵を削除
@@ -319,6 +328,9 @@ void GameScene::Update() {
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
+
+			// 通常・スタン状態の敵同士の重なりを解消
+			ResolveEnemyOverlaps();
 		}
 
 		// ヒットエフェクトの更新
@@ -597,6 +609,188 @@ bool GameScene::CheckAABBCollision(const AABB& aabb1, const AABB& aabb2) {
 	}
 
 	return isCollide;
+}
+
+/*-------------------- 通常・スタン状態の敵同士の重なりを解消 --------------------*/
+void GameScene::ResolveEnemyOverlaps() {
+	// 完全に密着した状態で再衝突しにくくする余白
+	constexpr float kEnemySeparationMargin = 0.01f;
+
+	for (auto firstIterator = enemies_.begin(); firstIterator != enemies_.end(); ++firstIterator) {
+
+		Enemy* first = *firstIterator;
+
+		if (!first || !first->CanResolveEnemyOverlap()) {
+			continue;
+		}
+
+		auto secondIterator = std::next(firstIterator);
+
+		for (; secondIterator != enemies_.end(); ++secondIterator) {
+
+			Enemy* second = *secondIterator;
+
+			if (!second || !second->CanResolveEnemyOverlap()) {
+				continue;
+			}
+
+			AABB firstAABB = first->GetAABB();
+
+			AABB secondAABB = second->GetAABB();
+
+			/*========== Y方向が重なっているか ==========*/
+
+			float overlapY = (std::min)(firstAABB.max.y, secondAABB.max.y) - (std::max)(firstAABB.min.y, secondAABB.min.y);
+
+			if (overlapY <= 0.0f) {
+				continue;
+			}
+
+			/*========== X方向が重なっているか ==========*/
+
+			float overlapX = (std::min)(firstAABB.max.x, secondAABB.max.x) - (std::max)(firstAABB.min.x, secondAABB.min.x);
+
+			if (overlapX <= 0.0f) {
+				continue;
+			}
+
+			overlapX += kEnemySeparationMargin;
+
+			Vector3 firstPosition = first->GetWorldPos();
+
+			Vector3 secondPosition = second->GetWorldPos();
+
+			/*
+			 * firstが左、secondが右になるように
+			 * ポインタを入れ替える。
+			 */
+			Enemy* leftEnemy = first;
+			Enemy* rightEnemy = second;
+
+			if (firstPosition.x > secondPosition.x) {
+				leftEnemy = second;
+				rightEnemy = first;
+			}
+
+			bool leftIsStunned = leftEnemy->IsStunned();
+
+			bool rightIsStunned = rightEnemy->IsStunned();
+
+			/*========== 通常敵同士 ==========*/
+			if (!leftIsStunned && !rightIsStunned) {
+
+				/*
+				 * 足場への移動中は、全員が同じ踏み切り位置を
+				 * 目指す可能性がある。
+				 *
+				 * この状態で位置補正すると互いを押し戻して
+				 * スタックするため、通常敵同士の補正を行わない。
+				 */
+				if (leftEnemy->IsUsingPlatformRoute() || rightEnemy->IsUsingPlatformRoute()) {
+					continue;
+				}
+
+				float halfCorrection = overlapX * 0.5f;
+
+				leftEnemy->MoveForEnemySeparation(-halfCorrection);
+
+				rightEnemy->MoveForEnemySeparation(halfCorrection);
+
+				continue;
+			}
+
+			/*========== 左が通常、右がスタン ==========*/
+			if (!leftIsStunned && rightIsStunned) {
+
+				// まずスタン敵を右へ押す
+				float stunnedMovement = rightEnemy->MoveForEnemySeparation(overlapX);
+				float resolvedDistance = (std::max)(stunnedMovement, 0.0f);
+				float remainingOverlap = (std::max)(overlapX - resolvedDistance, 0.0f);
+
+				/*
+				 * スタン敵が壁で動けなかった分だけ
+				 * 通常敵を左へ戻す。
+				 */
+				if (remainingOverlap > 0.0f) {
+					leftEnemy->MoveForEnemySeparation(-remainingOverlap);
+				}
+
+				continue;
+			}
+
+			/*========== 左がスタン、右が通常 ==========*/
+			if (leftIsStunned && !rightIsStunned) {
+
+				// まずスタン敵を左へ押す
+				float stunnedMovement = leftEnemy->MoveForEnemySeparation(-overlapX);
+				float resolvedDistance = (std::max)(-stunnedMovement, 0.0f);
+				float remainingOverlap = (std::max)(overlapX - resolvedDistance, 0.0f);
+
+				if (remainingOverlap > 0.0f) {
+					rightEnemy->MoveForEnemySeparation(remainingOverlap);
+				}
+
+				continue;
+			}
+
+			/*========== スタン敵同士 ==========*/
+			float halfCorrection = overlapX * 0.5f;
+
+			leftEnemy->MoveForEnemySeparation(-halfCorrection);
+
+			rightEnemy->MoveForEnemySeparation(halfCorrection);
+		}
+	}
+}
+
+/*-------------------- // スタンした敵の周囲にいる通常敵を押し出す --------------------*/
+void GameScene::PushEnemiesAroundStunned(Enemy* stunnedEnemy) {
+
+	if (!stunnedEnemy) {
+		return;
+	}
+
+	// 衝撃が届く横方向の範囲
+	constexpr float kShockwaveRangeX = 4.0f;
+
+	// 上下に離れた別足場の敵には当てない
+	constexpr float kShockwaveRangeY = 1.5f;
+
+	Vector3 sourcePosition = stunnedEnemy->GetWorldPos();
+
+	for (Enemy* enemy : enemies_) {
+		if (!enemy || enemy == stunnedEnemy || !enemy->CanReceiveStunShockwave()) {
+			continue;
+		}
+
+		Vector3 targetPosition = enemy->GetWorldPos();
+
+		float differenceX = targetPosition.x - sourcePosition.x;
+
+		float differenceY = targetPosition.y - sourcePosition.y;
+
+		if (std::abs(differenceX) > kShockwaveRangeX || std::abs(differenceY) > kShockwaveRangeY) {
+			continue;
+		}
+
+		float direction = 0.0f;
+
+		if (differenceX > 0.001f) {
+			direction = 1.0f;
+
+		} else if (differenceX < -0.001f) {
+			direction = -1.0f;
+
+		} else {
+			/*
+			 * 中心が完全に一致した場合は、
+			 * ポインタの並びで左右を決める。
+			 */
+			direction = enemy > stunnedEnemy ? 1.0f : -1.0f;
+		}
+
+		enemy->StartStunShockwaveKnockBack(direction);
+	}
 }
 
 /*-------------------- フェーズの切り替え --------------------*/
