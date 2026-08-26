@@ -314,6 +314,33 @@ private:
 	void UpdateCountdown();
 	void ChangeCountdownState(CountdownState state);
 
+	/*-------------------- 残り時間表示 --------------------*/
+	// 残り時間を表示する2桁のスプライト
+	std::array<KamataEngine::Sprite*, 2> timeDigitSprites_{};
+
+	// 前回表示した残り秒数
+	int32_t displayedRemainingTime_ = -1;
+
+	// 数字の表示サイズ
+	static constexpr float kTimeDigitWidth = 48.0f;
+	static constexpr float kTimeDigitHeight = 48.0f;
+
+	// 数字同士の間隔
+	static constexpr float kTimeDigitSpacing = 44.0f;
+
+	// 左側の数字の中心位置
+	static constexpr float kTimeLeftX = 50.0f;
+	static constexpr float kTimeTopY = 50.0f;
+
+	// 初期化
+	void InitializeTimeDisplay();
+
+	// 数字と位置を更新
+	void UpdateTimeDisplay();
+
+	// 描画
+	void DrawRemainingTime();
+
 	/*-------------------- ゲームの終了判定 --------------------*/
 	// ゲーム終了結果
 	GameResult gameResult_ = GameResult::kNone;

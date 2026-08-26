@@ -57,9 +57,18 @@ GameScene::~GameScene() {
 		delete digitSprite;
 	}
 	scoreDigitSprites_.clear();
+
 	// カウントダウンの解放
 	delete countdownSprite_;
 	countdownSprite_ = nullptr;
+
+	// 残り時間の解放
+	for (Sprite* timeDigitSprite : timeDigitSprites_) {
+
+		delete timeDigitSprite;
+	}
+
+	timeDigitSprites_.fill(nullptr);
 	delete fade_; // フェードの解放
 }
 
@@ -188,6 +197,9 @@ void GameScene::Initialize() {
 	// スコア表示の初期化
 	InitializeScoreDisplay();
 
+	// 残り時間表示の初期化
+	InitializeTimeDisplay();
+
 	// チュートリアルガイドの初期化
 	InitializeTutorialGuides();
 
@@ -214,7 +226,10 @@ void GameScene::Update() {
 	// プレイ時間タイマー
 	if (isMainGameStarted_) {
 		playTimer_ += deltaTime;
+
 		playTimer_ = (std::min)(playTimer_, kClearTime);
+
+		UpdateTimeDisplay();
 	}
 
 	// フェーズごとの更新処理
@@ -595,8 +610,12 @@ void GameScene::Draw() {
 	// チュートリアル操作ガイド
 	DrawTutorialGuide();
 
-	// 本プレイ中だけスコアを表示
+	// 本プレイ中だけス表示
 	if (isMainGameStarted_) {
+		// 左上に残り時間
+		DrawRemainingTime();
+
+		// 右上にスコア
 		DrawScore();
 	}
 
@@ -1436,6 +1455,9 @@ void GameScene::StartMainGame() {
 	UpdateScoreDisplay();
 	playTimer_ = 0.0f;
 
+	displayedRemainingTime_ = -1;
+	UpdateTimeDisplay();
+
 	// 本プレイ開始直後から最大10体まで補充可能
 	isReinforcementUnlocked_ = true;
 
@@ -1871,5 +1893,71 @@ void GameScene::ChangeCountdownState(CountdownState state) {
 
 	case CountdownState::kNone:
 		break;
+	}
+}
+
+
+void GameScene::InitializeTimeDisplay() {
+	for (size_t i = 0; i < timeDigitSprites_.size(); ++i) {
+
+		float positionX = kTimeLeftX + static_cast<float>(i) * kTimeDigitSpacing;
+
+		timeDigitSprites_[i] = Sprite::Create(
+		    scoreDigitTextures_[0], {
+		                                positionX,
+		                                kTimeTopY,
+		                            });
+
+		timeDigitSprites_[i]->SetAnchorPoint({
+		    0.5f,
+		    0.5f,
+		});
+
+		timeDigitSprites_[i]->SetSize({
+		    kTimeDigitWidth,
+		    kTimeDigitHeight,
+		});
+	}
+
+	displayedRemainingTime_ = -1;
+
+	UpdateTimeDisplay();
+}
+
+
+void GameScene::UpdateTimeDisplay() {
+	/*
+	 * ceilを使うことで、
+	 * 開始直後に60から59へ即座に変わることを防ぐ。
+	 */
+	int32_t remainingTime = static_cast<int32_t>(std::ceil(kClearTime - playTimer_));
+
+	remainingTime = std::clamp(remainingTime, 0, 99);
+
+	// 表示秒数が変化していなければ更新不要
+	if (remainingTime == displayedRemainingTime_) {
+
+		return;
+	}
+
+	displayedRemainingTime_ = remainingTime;
+
+	// 十の位
+	uint32_t tensDigit = static_cast<uint32_t>(remainingTime / 10);
+
+	// 一の位
+	uint32_t onesDigit = static_cast<uint32_t>(remainingTime % 10);
+
+	timeDigitSprites_[0]->SetTextureHandle(scoreDigitTextures_[tensDigit]);
+
+	timeDigitSprites_[1]->SetTextureHandle(scoreDigitTextures_[onesDigit]);
+}
+
+void GameScene::DrawRemainingTime() {
+	for (Sprite* timeDigitSprite : timeDigitSprites_) {
+
+		if (timeDigitSprite) {
+			timeDigitSprite->Draw();
+		}
 	}
 }
