@@ -1,8 +1,10 @@
 ﻿#include "GameScene.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iterator>
 #include <random>
+#include <string>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -38,7 +40,27 @@ GameScene::~GameScene() {
 	delete mapChipField_;     // マップチップフィールドの解放
 	delete camaraController_; // カメラコントローラの解放
 	delete debugCamera_;      // デバッグカメラの解放
-	delete fade_;             // フェードの解放
+	// チュートリアル用のガイドスプライトの解放
+	delete moveGuideSprite_;
+	moveGuideSprite_ = nullptr;
+
+	delete normalAttackGuideSprite_;
+	normalAttackGuideSprite_ = nullptr;
+
+	delete chargedAttackGuideSprite_;
+	chargedAttackGuideSprite_ = nullptr;
+
+	delete hitTargetGuideSprite_;
+	hitTargetGuideSprite_ = nullptr;
+	// スコアの解放
+	for (Sprite* digitSprite : scoreDigitSprites_) {
+		delete digitSprite;
+	}
+	scoreDigitSprites_.clear();
+	// カウントダウンの解放
+	delete countdownSprite_;
+	countdownSprite_ = nullptr;
+	delete fade_; // フェードの解放
 }
 
 /*==============================================================
@@ -89,6 +111,9 @@ void GameScene::Initialize() {
 	// 敵の3Dモデルの生成
 	modelEnemy_ = Model::CreateFromOBJ("balloonEnemy", true);
 
+	// 背景用の敵を生成
+	InitializeBackgroundEnemies();
+
 	// チュートリアル用に1体だけ生成
 	InitializeTutorial();
 
@@ -110,7 +135,7 @@ void GameScene::Initialize() {
 
 	/*--------------- ブロック ---------------*/
 	// ブロックの3Dモデルの生成
-	modelBlocks_ = Model::CreateFromOBJ("block", true);
+	modelBlocks_ = Model::CreateFromOBJ("BatFieldBox", true);
 
 	/*--------------- パーティクル ---------------*/
 	// パーティクルの3Dモデルの生成
@@ -157,6 +182,15 @@ void GameScene::Initialize() {
 	finished_ = false;
 	gameResult_ = GameResult::kNone;
 
+	// カウントダウンの初期化
+	InitializeCountdown();
+
+	// スコア表示の初期化
+	InitializeScoreDisplay();
+
+	// チュートリアルガイドの初期化
+	InitializeTutorialGuides();
+
 	/*--------------- フェード ---------------*/
 	fade_ = new Fade();
 	fade_->Initialize();
@@ -186,6 +220,9 @@ void GameScene::Update() {
 	// フェーズごとの更新処理
 	switch (phase_) {
 	case ::GameScene::Phase::kFadeIn:
+
+		UpdateBackgroundEnemies();
+
 		// 天球の更新
 		skydome_->Update();
 
@@ -247,7 +284,39 @@ void GameScene::Update() {
 
 	case GameScene::Phase::kPlay: {
 
+		// カウントダウン中
+		if (isCountdownActive_) {
+			// 背景は動かし続ける
+			skydome_->Update();
+			UpdateBackgroundEnemies();
+
+			// カウントを更新
+			UpdateCountdown();
+
+			// カメラは現在位置を維持
+			camaraController_->Update();
+
+			if (isDebugCameraActive_) {
+				debugCamera_->Update();
+
+				camera_.matView = debugCamera_->GetCamera().matView;
+
+				camera_.matProjection = debugCamera_->GetCamera().matProjection;
+
+				camera_.TransferMatrix();
+
+			} else {
+				camera_.UpdateMatrix();
+			}
+
+			break;
+		}
+
+		// ここから従来のプレイ更新
 		// インゲームの更新処理
+
+		UpdateBackgroundEnemies();
+
 		// 天球の更新
 		skydome_->Update();
 
@@ -292,6 +361,8 @@ void GameScene::Update() {
 		if (isMainGameStarted_ && defeatedEnemyCount > 0) {
 
 			score_ += static_cast<uint32_t>(defeatedEnemyCount) * kScorePerEnemy;
+
+			UpdateScoreDisplay();
 		}
 
 		// 最初の敵が倒されたら補充を解放
@@ -358,6 +429,9 @@ void GameScene::Update() {
 
 	case GameScene::Phase::kDeath:
 		// デス演出の更新処理
+
+		UpdateBackgroundEnemies();
+
 		// 天球の更新
 		skydome_->Update();
 
@@ -477,6 +551,13 @@ void GameScene::Draw() {
 	// 天球の描画
 	skydome_->Draw();
 
+	// 背景用の敵を描画
+	for (BackgroundEnemy* backgroundEnemy : backgroundEnemies_) {
+		if (backgroundEnemy) {
+			backgroundEnemy->Draw();
+		}
+	}
+
 	// ブロックの描画
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
@@ -505,32 +586,29 @@ void GameScene::Draw() {
 	// プレイヤーの描画
 	player_->Draw();
 
-	//// 操作ガイドの描画(チュートリアル中のみ)	描画するものがないので一旦停止
-	// switch (tutorialState_) {
-	// case TutorialState::kMove:
-	//	moveGuideSprite_->Draw();
-	//	break;
-
-	// case TutorialState::kNormalAttack:
-	//	normalAttackGuideSprite_->Draw();
-	//	break;
-
-	// case TutorialState::kChargedAttack:
-	//	chargedAttackGuideSprite_->Draw();
-	//	break;
-
-	// case TutorialState::kHitTarget:
-	//	hitTargetGuideSprite_->Draw();
-	//	break;
-
-	// case TutorialState::kFinished:
-	//	break;
-	// }
-
-	// フェードを更新
-	fade_->Draw();
-
 	Model::PostDraw();
+
+
+	/*========== 2Dスプライト描画 ==========*/
+	Sprite::PreDraw();
+
+	// チュートリアル操作ガイド
+	DrawTutorialGuide();
+
+	// 本プレイ中だけスコアを表示
+	if (isMainGameStarted_) {
+		DrawScore();
+	}
+
+	// 開始カウントダウン
+	if (isCountdownActive_ && countdownSprite_) {
+		countdownSprite_->Draw();
+	}
+
+	Sprite::PostDraw();
+
+	// フェードを描画
+	fade_->Draw();
 }
 
 /*-------------------- 指定位置へ敵を1体生成 --------------------*/
@@ -1217,17 +1295,23 @@ void GameScene::UpdateTutorial() {
 		break;
 
 	case TutorialState::kHitTarget:
+
 		/*
-		 * 2体目が吹き飛んできた敵によって倒され、
-		 * 死亡演出まで完了した。
+		 * ぶつけられた標的と、
+		 * 吹き飛ばした敵の両方が死亡演出を終え、
+		 * enemies_から削除されるまで待つ。
 		 */
-		if (!tutorialTargetEnemy_) {
+		if (!tutorialTargetEnemy_ && !tutorialLauncherEnemy_) {
+
 			tutorialState_ = TutorialState::kFinished;
 		}
+
 		break;
 
 	case TutorialState::kFinished:
-		StartMainGame();
+		if (!isCountdownActive_) {
+			StartCountdown();
+		}
 		break;
 	}
 }
@@ -1241,6 +1325,7 @@ void GameScene::StartMainGame() {
 	isMainGameStarted_ = true;
 
 	score_ = 0;
+	UpdateScoreDisplay();
 	playTimer_ = 0.0f;
 
 	// 本プレイ開始直後から最大10体まで補充可能
@@ -1279,15 +1364,6 @@ void GameScene::ChangePhase() {
 			// プレイヤー本体の死亡演出を開始
 			player_->StartDeathAnimation();
 
-			/*const Vector3 deathParticlesPosition = player_->GetWorldPos();
-
-			player_->SetWorldPos({-100.0f, -100.0f, -100.0f});
-
-			player_->Update();
-
-			deathParticles_ = new DeathParticles();
-			deathParticles_->Initialize(modelParticles_, &camera_, deathParticlesPosition);*/
-
 		} else if (playTimer_ >= kClearTime) {
 			// 30秒生存したらクリア
 			gameResult_ = GameResult::kClear;
@@ -1316,6 +1392,376 @@ void GameScene::ChangePhase() {
 		break;
 
 	default:
+		break;
+	}
+}
+
+void GameScene::InitializeBackgroundEnemies() {
+	backgroundEnemies_.clear();
+
+	std::random_device seedGenerator;
+	std::mt19937 randomEngine(seedGenerator());
+
+	std::uniform_real_distribution<float> xDistribution(-25.0f, 25.0f);
+	std::uniform_real_distribution<float> yDistribution(-12.0f, 12.0f);
+	std::uniform_real_distribution<float> zDistribution(8.0f, 18.0f);
+
+	for (size_t i = 0; i < kBackgroundEnemyCount; ++i) {
+		BackgroundEnemy* backgroundEnemy = new BackgroundEnemy();
+
+		Vector3 position = {
+		    camera_.translation_.x + xDistribution(randomEngine),
+		    camera_.translation_.y + yDistribution(randomEngine),
+		    zDistribution(randomEngine),
+		};
+
+		backgroundEnemy->Initialize(modelEnemy_, &camera_, position);
+
+		backgroundEnemies_.push_back(backgroundEnemy);
+	}
+}
+
+void GameScene::UpdateBackgroundEnemies() {
+	for (BackgroundEnemy* backgroundEnemy : backgroundEnemies_) {
+		if (backgroundEnemy) {
+			backgroundEnemy->Update();
+		}
+	}
+}
+
+void GameScene::InitializeTutorialGuides() {
+	uint32_t moveTexture = TextureManager::Load("tutorialMove.png");
+
+	uint32_t normalAttackTexture = TextureManager::Load("tutorialNormalAttack.png");
+
+	uint32_t chargedAttackTexture = TextureManager::Load("tutorialChargedAttack.png");
+
+	uint32_t hitTargetTexture = TextureManager::Load("tutorialHitTarget.png");
+
+	Vector2 guidePosition = {
+	    kTutorialGuideX,
+	    kTutorialGuideY,
+	};
+
+	Vector2 guideSize = {
+	    kTutorialGuideWidth,
+	    kTutorialGuideHeight,
+	};
+
+	/*========== 移動説明 ==========*/
+
+	moveGuideSprite_ = Sprite::Create(moveTexture, guidePosition);
+
+	moveGuideSprite_->SetAnchorPoint({
+	    0.5f,
+	    0.5f,
+	});
+
+	moveGuideSprite_->SetSize(guideSize);
+
+	/*========== 通常攻撃説明 ==========*/
+
+	normalAttackGuideSprite_ = Sprite::Create(normalAttackTexture, guidePosition);
+
+	normalAttackGuideSprite_->SetAnchorPoint({
+	    0.5f,
+	    0.5f,
+	});
+
+	normalAttackGuideSprite_->SetSize(guideSize);
+
+	/*========== 溜め攻撃説明 ==========*/
+
+	chargedAttackGuideSprite_ = Sprite::Create(chargedAttackTexture, guidePosition);
+
+	chargedAttackGuideSprite_->SetAnchorPoint({
+	    0.5f,
+	    0.5f,
+	});
+
+	chargedAttackGuideSprite_->SetSize(guideSize);
+
+	/*========== 敵同士をぶつける説明 ==========*/
+
+	hitTargetGuideSprite_ = Sprite::Create(hitTargetTexture, guidePosition);
+
+	hitTargetGuideSprite_->SetAnchorPoint({
+	    0.5f,
+	    0.5f,
+	});
+
+	hitTargetGuideSprite_->SetSize(guideSize);
+}
+
+void GameScene::DrawTutorialGuide() {
+	// 本プレイ開始後は表示しない
+	if (isMainGameStarted_) {
+		return;
+	}
+
+	// カウントダウンに入ったら表示しない
+	if (isCountdownActive_) {
+		return;
+	}
+
+	switch (tutorialState_) {
+	case TutorialState::kMove:
+		if (moveGuideSprite_) {
+			moveGuideSprite_->Draw();
+		}
+		break;
+
+	case TutorialState::kNormalAttack:
+		if (normalAttackGuideSprite_) {
+			normalAttackGuideSprite_->Draw();
+		}
+		break;
+
+	case TutorialState::kChargedAttack:
+		if (chargedAttackGuideSprite_) {
+			chargedAttackGuideSprite_->Draw();
+		}
+		break;
+
+	case TutorialState::kHitTarget:
+
+		if (hitTargetGuideSprite_) {
+			hitTargetGuideSprite_->Draw();
+		}
+
+		break;
+
+	case TutorialState::kFinished:
+		break;
+	}
+}
+
+void GameScene::InitializeScoreDisplay() {
+	// カウントダウン用画像の1～3を流用
+	scoreDigitTextures_[0] = TextureManager::Load("count0.png");
+
+	scoreDigitTextures_[1] = countdownTexture1_;
+
+	scoreDigitTextures_[2] = countdownTexture2_;
+
+	scoreDigitTextures_[3] = countdownTexture3_;
+
+	scoreDigitTextures_[4] = TextureManager::Load("count4.png");
+
+	scoreDigitTextures_[5] = TextureManager::Load("count5.png");
+
+	scoreDigitTextures_[6] = TextureManager::Load("count6.png");
+
+	scoreDigitTextures_[7] = TextureManager::Load("count7.png");
+
+	scoreDigitTextures_[8] = TextureManager::Load("count8.png");
+
+	scoreDigitTextures_[9] = TextureManager::Load("count9.png");
+
+	scoreDigitSprites_.clear();
+
+	for (size_t i = 0; i < kMaxScoreDigits; ++i) {
+		Sprite* digitSprite = Sprite::Create(scoreDigitTextures_[0], {kScoreRightX, kScoreTopY});
+
+		digitSprite->SetAnchorPoint({0.5f, 0.5f});
+
+		digitSprite->SetSize({
+		    kScoreDigitWidth,
+		    kScoreDigitHeight,
+		});
+
+		scoreDigitSprites_.push_back(digitSprite);
+	}
+
+	displayedScore_ = UINT32_MAX;
+	UpdateScoreDisplay();
+}
+
+void GameScene::UpdateScoreDisplay() {
+	// スコアが変わっていなければ更新不要
+	if (score_ == displayedScore_) {
+		return;
+	}
+
+	displayedScore_ = score_;
+
+	std::string scoreText = std::to_string(score_);
+
+	// 念のため最大桁数に制限
+	if (scoreText.size() > kMaxScoreDigits) {
+		scoreText = scoreText.substr(scoreText.size() - kMaxScoreDigits);
+	}
+
+	scoreDigitCount_ = scoreText.size();
+
+	for (size_t i = 0; i < scoreDigitCount_; ++i) {
+		uint32_t digit = static_cast<uint32_t>(scoreText[i] - '0');
+
+		scoreDigitSprites_[i]->SetTextureHandle(scoreDigitTextures_[digit]);
+
+		/*
+		 * 右端を固定して並べる。
+		 *
+		 * 例：
+		 *   100 なら右から 0、0、1の順に位置を計算
+		 */
+		float positionX = kScoreRightX - static_cast<float>(scoreDigitCount_ - 1 - i) * kScoreDigitSpacing;
+
+		scoreDigitSprites_[i]->SetPosition({
+		    positionX,
+		    kScoreTopY,
+		});
+
+		scoreDigitSprites_[i]->SetSize({
+		    kScoreDigitWidth,
+		    kScoreDigitHeight,
+		});
+	}
+}
+
+void GameScene::DrawScore() {
+	for (size_t i = 0; i < scoreDigitCount_; ++i) {
+
+		if (i >= scoreDigitSprites_.size()) {
+			break;
+		}
+
+		if (scoreDigitSprites_[i]) {
+			scoreDigitSprites_[i]->Draw();
+		}
+	}
+}
+
+/* -- -- -- -- -- -- -- -- -- --カウントダウンの初期化-- -- -- -- -- -- -- -- -- --*/
+void GameScene::InitializeCountdown() {
+
+	countdownTexture0_ = TextureManager::Load("count0.png");
+	countdownTexture9_ = TextureManager::Load("count9.png");
+	countdownTexture8_ = TextureManager::Load("count8.png");
+	countdownTexture7_ = TextureManager::Load("count7.png");
+	countdownTexture6_ = TextureManager::Load("count6.png");
+	countdownTexture5_ = TextureManager::Load("count5.png");
+	countdownTexture4_ = TextureManager::Load("count4.png");
+	countdownTexture3_ = TextureManager::Load("count3.png");
+	countdownTexture2_ = TextureManager::Load("count2.png");
+	countdownTexture1_ = TextureManager::Load("count1.png");
+	countdownTextureStart_ = TextureManager::Load("countStart.png");
+
+	countdownSprite_ = Sprite::Create(countdownTexture3_, {640.0f, 360.0f});
+
+	// スプライトの中心を画面中央へ合わせる
+	countdownSprite_->SetAnchorPoint({0.5f, 0.5f});
+	countdownSprite_->SetSize({256.0f, 256.0f});
+
+	countdownState_ = CountdownState::kNone;
+	isCountdownActive_ = false;
+	countdownTimer_ = 0.0f;
+}
+
+void GameScene::StartCountdown() {
+	if (isCountdownActive_ || isMainGameStarted_) {
+		return;
+	}
+
+	isCountdownActive_ = true;
+	countdownTimer_ = 0.0f;
+
+	ChangeCountdownState(CountdownState::kThree);
+
+	/*
+	 * チュートリアル敵を画面から取り除く。
+	 * 本プレイ用の敵はカウント終了後に補充される。
+	 */
+	enemies_.remove_if([this](Enemy* enemy) {
+		if (!enemy->IsTutorialEnemy()) {
+			return false;
+		}
+
+		delete enemy;
+		return true;
+	});
+
+	tutorialLauncherEnemy_ = nullptr;
+	tutorialTargetEnemy_ = nullptr;
+}
+
+void GameScene::UpdateCountdown() {
+	if (!isCountdownActive_) {
+		return;
+	}
+
+	const float deltaTime = 1.0f / 60.0f;
+	countdownTimer_ += deltaTime;
+
+	float duration = kCountdownNumberTime;
+
+	if (countdownState_ == CountdownState::kStart) {
+		duration = kCountdownStartTime;
+	}
+
+	// 表示開始時は大きく、徐々に小さくする
+	float t = std::clamp(countdownTimer_ / duration, 0.0f, 1.0f);
+
+	float scale = kCountdownStartScale + (kCountdownEndScale - kCountdownStartScale) * t;
+
+	countdownSprite_->SetSize({
+	    256.0f * scale,
+	    256.0f * scale,
+	});
+
+	if (countdownTimer_ < duration) {
+		return;
+	}
+
+	switch (countdownState_) {
+	case CountdownState::kThree:
+		ChangeCountdownState(CountdownState::kTwo);
+		break;
+
+	case CountdownState::kTwo:
+		ChangeCountdownState(CountdownState::kOne);
+		break;
+
+	case CountdownState::kOne:
+		ChangeCountdownState(CountdownState::kStart);
+		break;
+
+	case CountdownState::kStart:
+		countdownState_ = CountdownState::kNone;
+		isCountdownActive_ = false;
+
+		// この瞬間から制限時間と敵の出現を開始
+		StartMainGame();
+		break;
+
+	case CountdownState::kNone:
+		break;
+	}
+}
+
+void GameScene::ChangeCountdownState(CountdownState state) {
+
+	countdownState_ = state;
+	countdownTimer_ = 0.0f;
+
+	switch (countdownState_) {
+	case CountdownState::kThree:
+		countdownSprite_->SetTextureHandle(countdownTexture3_);
+		break;
+
+	case CountdownState::kTwo:
+		countdownSprite_->SetTextureHandle(countdownTexture2_);
+		break;
+
+	case CountdownState::kOne:
+		countdownSprite_->SetTextureHandle(countdownTexture1_);
+		break;
+
+	case CountdownState::kStart:
+		countdownSprite_->SetTextureHandle(countdownTextureStart_);
+		break;
+
+	case CountdownState::kNone:
 		break;
 	}
 }

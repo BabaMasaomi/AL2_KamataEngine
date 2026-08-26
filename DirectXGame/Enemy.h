@@ -491,7 +491,7 @@ private:
 	float blownAwayTimer_ = 0.0f;
 
 	// 初速
-	static constexpr float kBlownAwaySpeed = 0.75f;
+	static constexpr float kBlownAwaySpeed = 1.75f;
 
 	// この時間までは速度を維持する
 	static constexpr float kBlownAwayFlyingTime = 2.5f;

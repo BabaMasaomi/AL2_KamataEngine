@@ -9,6 +9,7 @@
 #include "MapChipField.h"
 #include "Player.h"
 #include "Skydome.h"
+#include "BackgroundEnemy.h"
 #include "Transform.h"
 #include "temporaryAABB.h"
 #include <vector>
@@ -103,6 +104,19 @@ private:
 	// 天球
 	Skydome* skydome_ = nullptr;
 
+	/*-------------------- 背景用の敵 --------------------*/
+	// 背景敵のリスト
+	std::list<BackgroundEnemy*> backgroundEnemies_ = {};
+
+	// 背景敵の表示数
+	static constexpr size_t kBackgroundEnemyCount = 12;
+
+	// 背景敵を生成
+	void InitializeBackgroundEnemies();
+
+	// 背景敵を更新
+	void UpdateBackgroundEnemies();
+
 	/*-------------------- ブロック --------------------*/
 	// ブロックの3Dモデル
 	KamataEngine::Model* modelBlocks_ = nullptr;
@@ -183,6 +197,122 @@ private:
 
 	// 中央に到着したと判断するX座標
 	static constexpr float kTutorialCenterX = 42.0f;
+
+	/*-------------------- チュートリアル操作ガイド --------------------*/
+	// 移動説明
+	KamataEngine::Sprite* moveGuideSprite_ = nullptr;
+
+	// 通常攻撃説明
+	KamataEngine::Sprite* normalAttackGuideSprite_ = nullptr;
+
+	// 溜め攻撃説明
+	KamataEngine::Sprite* chargedAttackGuideSprite_ = nullptr;
+
+	// 敵同士をぶつける説明
+	KamataEngine::Sprite* hitTargetGuideSprite_ = nullptr;
+
+	// 操作ガイドの表示位置
+	static constexpr float kTutorialGuideX = 640.0f;
+	static constexpr float kTutorialGuideY = 100.0f;
+
+	// 操作ガイドの表示サイズ
+	static constexpr float kTutorialGuideWidth = 800.0f;
+	static constexpr float kTutorialGuideHeight = 120.0f;
+
+	// 初期化
+	void InitializeTutorialGuides();
+
+	// 描画
+	void DrawTutorialGuide();
+
+	/*-------------------- スコア表示 --------------------*/
+	// 0～9の数字テクスチャ
+	std::array<uint32_t, 10> scoreDigitTextures_{};
+
+	// 桁ごとのスプライト
+	std::vector<KamataEngine::Sprite*> scoreDigitSprites_;
+
+	// 現在表示している桁数
+	size_t scoreDigitCount_ = 1;
+
+	// 前回表示したスコア
+	uint32_t displayedScore_ = UINT32_MAX;
+
+	// 表示できる最大桁数
+	static constexpr size_t kMaxScoreDigits = 8;
+
+	// 数字の表示サイズ
+	static constexpr float kScoreDigitWidth = 48.0f;
+	static constexpr float kScoreDigitHeight = 48.0f;
+
+	// 数字同士の間隔
+	static constexpr float kScoreDigitSpacing = 44.0f;
+
+	// 一番右の数字の中心位置
+	static constexpr float kScoreRightX = 1230.0f;
+
+	// 数字の中心Y座標
+	static constexpr float kScoreTopY = 50.0f;
+
+	// 初期化
+	void InitializeScoreDisplay();
+
+	// 表示する数字と座標を更新
+	void UpdateScoreDisplay();
+
+	// 描画
+	void DrawScore();
+
+	/*-------------------- 開始カウントダウン --------------------*/
+	enum class CountdownState {
+		kNone,
+		kThree,
+		kTwo,
+		kOne,
+		kStart,
+	};
+
+	// 現在のカウント表示
+	CountdownState countdownState_ = CountdownState::kNone;
+
+	// カウントダウン中か
+	bool isCountdownActive_ = false;
+
+	// 現在の数字を表示している時間
+	float countdownTimer_ = 0.0f;
+
+	// 数字1つあたりの表示時間
+	static constexpr float kCountdownNumberTime = 0.8f;
+
+	// STARTの表示時間
+	static constexpr float kCountdownStartTime = 0.6f;
+
+	// カウント表示用スプライト
+	KamataEngine::Sprite* countdownSprite_ = nullptr;
+
+	// テクスチャ
+	uint32_t countdownTexture0_ = 0;
+	uint32_t countdownTexture9_ = 0;
+	uint32_t countdownTexture8_ = 0;
+	uint32_t countdownTexture7_ = 0;
+	uint32_t countdownTexture6_ = 0;
+	uint32_t countdownTexture5_ = 0;
+	uint32_t countdownTexture4_ = 0;
+	uint32_t countdownTexture3_ = 0;
+	uint32_t countdownTexture2_ = 0;
+	uint32_t countdownTexture1_ = 0;
+	uint32_t countdownTextureStart_ = 0;
+
+	// カウント開始時の初期サイズ
+	static constexpr float kCountdownStartScale = 1.35f;
+
+	// カウント終了時のサイズ
+	static constexpr float kCountdownEndScale = 0.85f;
+
+	void InitializeCountdown();
+	void StartCountdown();
+	void UpdateCountdown();
+	void ChangeCountdownState(CountdownState state);
 
 	/*-------------------- ゲームの終了判定 --------------------*/
 	// ゲーム終了結果

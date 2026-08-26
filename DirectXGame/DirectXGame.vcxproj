@@ -154,6 +154,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BackgroundEnemy.cpp" />
     <ClCompile Include="BasicCharacterComposition.cpp" />
     <ClCompile Include="CameraController.cpp" />
     <ClCompile Include="DeathParticles.cpp" />
@@ -271,6 +272,7 @@
     <None Include="Resources\shaders\Sprite.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BackgroundEnemy.h" />
     <ClInclude Include="BasicCharacterComposition.h" />
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="DeathParticles.h" />
