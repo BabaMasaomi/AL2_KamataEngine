@@ -618,13 +618,14 @@ void GameScene::SpawnEnemy(const Vector3& position) {
 
 	newEnemy->SetMapChipField(mapChipField_);
 
-	newEnemy->Initialize(modelEnemy_, &camera_, position);
+	newEnemy->Initialize(modelEnemy_, &camera_, position, true);
 
 	newEnemy->SetTarget(player_);
 	newEnemy->SetGameScene(this);
 
 	enemies_.push_back(newEnemy);
 }
+
 /*-------------------- 画面外の補充位置を探す --------------------*/
 Vector3 GameScene::FindReinforcementSpawnPosition() {
 	constexpr float kCameraHalfWidth = 21.0f;
@@ -701,10 +702,19 @@ Vector3 GameScene::FindReinforcementSpawnPosition() {
 			    0.0f,
 			};
 
-			// 画面内に突然出現しないようにする
-			float cameraDistance = std::abs(candidatePosition.x - camera_.translation_.x);
+			// プレイヤーから離す最低距離
+			constexpr float kMinimumPlayerSpawnDistance = 16.0f;
 
-			if (cameraDistance <= kCameraHalfWidth + kOutsideMargin) {
+			Vector3 playerPosition = player_->GetWorldPos();
+
+			float differenceX = candidatePosition.x - playerPosition.x;
+			float differenceY = candidatePosition.y - playerPosition.y;
+
+			float distanceSquared = differenceX * differenceX + differenceY * differenceY;
+			float minimumDistanceSquared = kMinimumPlayerSpawnDistance * kMinimumPlayerSpawnDistance;
+
+			// プレイヤーに近すぎる位置には出現させない
+			if (distanceSquared < minimumDistanceSquared) {
 
 				continue;
 			}

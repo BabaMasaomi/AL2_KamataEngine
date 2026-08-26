@@ -34,7 +34,7 @@ float RandomFloat(float minValue, float maxValue) {
 /// </summary>
 /// <param name="model"></param>
 /// <param name="pos"></param>
-void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
+void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos, bool useSpawnAnimation) {
 	// ぬるぽチェック
 	assert(model);
 
@@ -46,8 +46,31 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 
 	// メンバ変数への代入処理
 	// 敵の拡縮,回転,平行移動情報
-	worldTransform_.scale_ = {2, 2, 2};
 	worldTransform_.translation_ = pos;
+
+	if (useSpawnAnimation) {
+		// 着地予定位置より上に出現
+		worldTransform_.translation_.y += kSpawnHeight;
+
+		worldTransform_.scale_ = {
+		    kSpawnStartScale,
+		    kSpawnStartScale,
+		    kSpawnStartScale,
+		};
+
+		behavior_ = BehaviorEnemy::kSpawn;
+		isCollisionDisenabled_ = true;
+
+	} else {
+		worldTransform_.scale_ = {
+		    kNormalScale,
+		    kNormalScale,
+		    kNormalScale,
+		};
+
+		behavior_ = BehaviorEnemy::kRoot;
+		isCollisionDisenabled_ = false;
+	}
 	worldTransform_.rotation_.y = -std::numbers::pi_v<float> / 2.0f;
 
 	// 旋回制御用の変数初期化
@@ -69,9 +92,10 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos) {
 	stunHitCount_ = 0;
 
 	isDead_ = false;
-	isCollisionDisenabled_ = false;
-	behavior_ = BehaviorEnemy::kRoot;
 	behaviorRequest_ = BehaviorEnemy::kUnknown;
+
+	spawnTimer_ = 0.0f;
+	spawnBasePosition_ = worldTransform_.translation_;
 
 	isOnGround_ = false;
 
@@ -105,6 +129,10 @@ void Enemy::Update() {
 		behavior_ = behaviorRequest_;
 
 		switch (behavior_) {
+			// 出現演出初期化
+		case BehaviorEnemy::kSpawn:
+			BehaviorSpawnInitialize();
+			break;
 			// 通常行動初期化
 		case BehaviorEnemy::kRoot:
 			BehaviorRootInitialize();
@@ -131,6 +159,10 @@ void Enemy::Update() {
 
 	// Behaviorの実行
 	switch (behavior_) {
+		// 出現演出更新
+	case BehaviorEnemy::kSpawn:
+		BehaviorSpawnUpdate();
+		break;
 		// 通常行動更新
 	case BehaviorEnemy::kRoot:
 		BehaviorRootUpdate();
@@ -1375,6 +1407,97 @@ float Enemy::MoveForEnemySeparation(float movementX) {
 	transform_.worldMatrixUpdate(worldTransform_);
 
 	return actualMovementX;
+}
+
+// 出現行動初期化
+void Enemy::BehaviorSpawnInitialize() {
+	spawnTimer_ = 0.0f;
+
+	velocity_ = {};
+
+	isOnGround_ = false;
+
+	// 出現中は攻撃・接触・敵同士の押し合いを無効化
+	isCollisionDisenabled_ = true;
+
+	worldTransform_.scale_ = {
+	    kSpawnStartScale,
+	    kSpawnStartScale,
+	    kSpawnStartScale,
+	};
+}
+
+// 出現行動更新
+void Enemy::BehaviorSpawnUpdate() {
+	const float deltaTime = 1.0f / 60.0f;
+
+	spawnTimer_ += deltaTime;
+
+	/*========== 膨張 ==========*/
+
+	if (spawnTimer_ < kSpawnExpandTime) {
+		float t = std::clamp(spawnTimer_ / kSpawnExpandTime, 0.0f, 1.0f);
+
+		// 滑らかに膨らませる
+		float easeT = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
+
+		float scale = kSpawnStartScale + (kSpawnExpandScale - kSpawnStartScale) * easeT;
+
+		worldTransform_.scale_ = {
+		    scale,
+		    scale,
+		    scale,
+		};
+
+		// 膨張中はその場に滞空
+		velocity_ = {};
+		return;
+	}
+
+	/*========== 滞空 ==========*/
+
+	float hoverTimer = spawnTimer_ - kSpawnExpandTime;
+
+	if (hoverTimer < kSpawnHoverTime) {
+		float t = std::clamp(hoverTimer / kSpawnHoverTime, 0.0f, 1.0f);
+
+		/*
+		 * 少し大きく膨らんだ状態から
+		 * 通常サイズへ戻す。
+		 */
+		float smoothT = t * t * (3.0f - 2.0f * t);
+
+		float scale = kSpawnExpandScale + (kNormalScale - kSpawnExpandScale) * smoothT;
+
+		worldTransform_.scale_ = {
+		    scale,
+		    scale,
+		    scale,
+		};
+
+		velocity_ = {};
+		return;
+	}
+
+	/*========== 落下 ==========*/
+
+	worldTransform_.scale_ = {
+	    kNormalScale,
+	    kNormalScale,
+	    kNormalScale,
+	};
+
+	/*
+	 * スタン状態用の処理には、
+	 * 横移動を行わない重力・床・天井判定が
+	 * すでにまとまっているため再利用する。
+	 */
+	UpdateStunnedMapMovement();
+
+	// 着地後に通常行動へ移行
+	if (isOnGround_) {
+		behaviorRequest_ = BehaviorEnemy::kRoot;
+	}
 }
 
 // 通常行動初期化

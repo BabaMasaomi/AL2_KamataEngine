@@ -16,6 +16,7 @@ enum class EnemyLRDirection {
 
 // 振る舞い
 enum class BehaviorEnemy {
+	kSpawn, // 出現演出
 	kRoot,
 	kStunned,
 	kBlownAway,
@@ -29,6 +30,7 @@ enum class EnemyPurpose {
 	kTutorialLauncher, // プレイヤーに吹き飛ばされる敵
 	kTutorialTarget,   // 飛んできた敵を当てる標的
 };
+
 
 // 追跡ジャンプの状態
 enum class ChaseJumpState {
@@ -62,7 +64,7 @@ public:
 	/// </summary>
 	/// <param name="model"></param>
 	/// <param name="pos"></param>
-	void Initialize(KamataEngine::Model* model, KamataEngine::Camera* camera, const KamataEngine::Vector3 pos);
+	void Initialize(KamataEngine::Model* model, KamataEngine::Camera* camera, const KamataEngine::Vector3 pos, bool useSpawnAnimation = false);
 
 	/// <summary>
 	/// 敵の更新
@@ -70,6 +72,10 @@ public:
 	void Update();
 
 	// ルートビヘイビア用更新
+	// 出現演出
+	void BehaviorSpawnInitialize();
+	void BehaviorSpawnUpdate();
+
 	// 通常行動
 	void BehaviorRootInitialize();
 	void BehaviorRootUpdate();
@@ -288,6 +294,31 @@ private:
 
 	// この敵の用途
 	EnemyPurpose purpose_ = EnemyPurpose::kNormal;
+
+	/*--------------- 出現演出 ---------------*/
+	// 出現演出の経過時間
+	float spawnTimer_ = 0.0f;
+
+	// 出現時の基準位置
+	KamataEngine::Vector3 spawnBasePosition_{};
+
+	// 最初の大きさ
+	static constexpr float kSpawnStartScale = 0.05f;
+
+	// 膨らみ切った瞬間の大きさ
+	static constexpr float kSpawnExpandScale = 2.25f;
+
+	// 通常時の大きさ
+	static constexpr float kNormalScale = 2.0f;
+
+	// 膨らむ時間
+	static constexpr float kSpawnExpandTime = 0.45f;
+
+	// 膨らんだ後に滞空する時間
+	static constexpr float kSpawnHoverTime = 0.25f;
+
+	// 足場より上に出現する高さ
+	static constexpr float kSpawnHeight = 2.5f;
 
 	/*--------------- 通常状態の地形移動 ---------------*/
 	// 接地しているか
