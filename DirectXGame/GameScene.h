@@ -91,6 +91,19 @@ private:
 	// ヒットエフェクトのリスト
 	std::list<HitEffect*> hitEffects_ = {};	
 
+	/*--------------- ヒットストップ ---------------*/
+	// ヒットストップ開始までの残り時間
+	float hitStopDelayTimer_ = 0.0f;
+
+	// エフェクトを進めてから停止するまでの時間
+	static constexpr float kHitStopDelayTime = 0.05f;
+
+	// ヒットストップの残り時間
+	float hitStopTimer_ = 0.0f;
+
+	// 実際に停止する時間
+	static constexpr float kChargedAttackHitStopTime = 0.08f;
+
 	/*-------------------- 追従カメラ --------------------*/
 	// カメラ
 	KamataEngine::Camera camera_;
@@ -129,6 +142,12 @@ public:
 
 	// エフェクトの生成
 	void CreateHitEffect(KamataEngine::Vector3 pos, HitEffectType type);
+
+	// ヒットエフェクトを更新
+	void UpdateHitEffects();
+
+	// 溜め攻撃命中時のヒットストップを開始
+	void StartChargedAttackHitStop();
 
 	// 表示ブロックの生成
 	void GenerateBlocks();	

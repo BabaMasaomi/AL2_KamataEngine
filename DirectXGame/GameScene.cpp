@@ -1,7 +1,7 @@
 ﻿#include "GameScene.h"
-#include <iterator>
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -95,7 +95,7 @@ void GameScene::Initialize() {
 		// 敵の生成
 		Enemy* newEnemy = new Enemy();
 
-		// 
+		//
 		newEnemy->SetMapChipField(mapChipField_);
 
 		// 座標をマップチップ番号で指定
@@ -174,6 +174,18 @@ void GameScene::Initialize() {
 
 /*-------------------- 更新 --------------------*/
 void GameScene::Update() {
+	const float deltaTime = 1.0f / 60.0f;
+
+	// ヒットストップ中
+	if (phase_ == Phase::kPlay && hitStopTimer_ > 0.0f) {
+
+		hitStopTimer_ -= deltaTime;
+		hitStopTimer_ = (std::max)(hitStopTimer_, 0.0f);
+
+		// エフェクトを含め、すべて停止
+		return;
+	}
+
 	// フェーズごとの更新処理
 	switch (phase_) {
 	case ::GameScene::Phase::kFadeIn:
@@ -262,19 +274,7 @@ void GameScene::Update() {
 		});
 
 		// ヒットエフェクトの更新
-		for (HitEffect* hitEffect : hitEffects_) {
-			hitEffect->UpDate();
-		}
-
-		// デスフラグの立ったエフェクトを削除
-		hitEffects_.remove_if([](HitEffect* effect) {
-			if (effect->GetIsDead()) {
-				delete effect;
-				return true;
-			}
-
-			return false;
-		});
+		UpdateHitEffects();
 
 		// カメラコントローラの更新
 		camaraController_->Update();
@@ -400,7 +400,7 @@ void GameScene::Update() {
 
 #ifdef _DEBUG
 	// デバッグ起動
-	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+	if (Input::GetInstance()->TriggerKey(DIK_RETURN)) {
 		if (isDebugCameraActive_) {
 			isDebugCameraActive_ = false;
 		} else {
@@ -459,6 +459,27 @@ void GameScene::CreateHitEffect(Vector3 pos, HitEffectType type) {
 	HitEffect* newHitEffect = HitEffect::Create(pos, type);
 	hitEffects_.push_back(newHitEffect);
 }
+
+/*-------------------- ヒットエフェクトを更新 --------------------*/
+void GameScene::UpdateHitEffects() {
+	// ヒットエフェクトの更新
+	for (HitEffect* hitEffect : hitEffects_) {
+		hitEffect->UpDate();
+	}
+
+	// 終了したエフェクトを削除
+	hitEffects_.remove_if([](HitEffect* effect) {
+		if (effect->GetIsDead()) {
+			delete effect;
+			return true;
+		}
+
+		return false;
+	});
+}
+
+/*-------------------- ヒットストップ開始 --------------------*/
+void GameScene::StartChargedAttackHitStop() { hitStopTimer_ = (std::max)(hitStopTimer_, kChargedAttackHitStopTime); }
 
 /*-------------------- 表示ブロックの生成 --------------------*/
 void GameScene::GenerateBlocks() {

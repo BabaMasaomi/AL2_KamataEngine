@@ -5,6 +5,7 @@
 // エフェクトの種類
 enum class HitEffectType {
 	kHit,
+	kChargedHit, // 溜め攻撃用
 	kGuard,
 };
 
@@ -20,11 +21,11 @@ public:
 	void UpDate();
 
 	// エフェクトBehavior初期化
-	void BehaviorExpandInitialize();	// エフェクト発生
-	void BehaviorFadeOutInitialize();	// エフェクトフェードアウト
+	void BehaviorExpandInitialize();  // エフェクト発生
+	void BehaviorFadeOutInitialize(); // エフェクトフェードアウト
 	// エフェクトBehavior更新
-	void BehaviorExpandUpdate();	// エフェクト発生
-	void BehaviorFadeOutUpdate();	// エフェクトフェードアウト
+	void BehaviorExpandUpdate();  // エフェクト発生
+	void BehaviorFadeOutUpdate(); // エフェクトフェードアウト
 
 	void Draw();
 
@@ -59,16 +60,26 @@ private:
 	std::array<KamataEngine::WorldTransform, 2> ellipseWorldTransform_;
 
 	// 発生用タイマー
-	float expandTimer_;
+	float expandTimer_ = 0.0f;
 	static constexpr float kExpandTime_ = 0.1f;
 	// フェードアウト用タイマー
-	float fadeTimer_;
+	float fadeTimer_ = 0.0f;
 	static constexpr float kFadeTime_ = 0.3f;
 	// 透明度
 	float alpha_ = 1.0f;
 
 	// 消失フラグ
 	bool isDead_ = false;
+
+	/*--------------- 溜め攻撃用 ---------------*/
+	// 溜め攻撃エフェクトの初期サイズ
+	static constexpr float kChargedHitInitialScale = 3.5f;
+
+	// 消える直前のサイズ
+	static constexpr float kChargedHitEndScale = 4.3f;
+
+	// フェード時間
+	static constexpr float kChargedHitFadeTime = 0.22f;
 
 	/*--------------- ビヘイビア管理用 ---------------*/
 	// エフェクトの種類

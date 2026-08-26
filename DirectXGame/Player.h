@@ -315,8 +315,18 @@ private:
 	// 最大まで溜まったか
 	bool isChargeReady_ = false;
 
-	// 溜め開始時のバット角度
-	static constexpr float kChargeBatAngle = -80.0f;
+	// 溜め攻撃時の奥行き角度
+	// 90度を超えることで、バットの先端が斜め後ろまで移動する
+	static constexpr float kChargeBatAngle = -145.0f;
+
+	// 通常攻撃開始時の先端の上がり具合
+	static constexpr float kNormalBatTipLift = 10.0f;
+
+	// 最大溜め時の先端の上がり具合
+	static constexpr float kChargeBatTipLift = 28.0f;
+
+	// 振り抜いた後の先端の上がり具合
+	static constexpr float kBatFollowThroughLift = 18.0f;
 
 	/*--------------- 通常攻撃用 ---------------*/
 	// 各フェーズのタイマー
@@ -335,8 +345,8 @@ private:
 	static constexpr float kAttackStepSpeed = 0.80f;
 
 	// バットの振り始めと振り終わり
-	static constexpr float kBatAngleStart = -55.0f;
-	static constexpr float kBatAngleEnd = 65.0f;
+	static constexpr float kBatAngleStart = -100.0f;
+	static constexpr float kBatAngleEnd = 100.0f;
 
 	// 攻撃判定の大きさ
 	static constexpr float kAttackWidth = 3.6f;
@@ -360,10 +370,18 @@ private:
 	// 攻撃を開始するたびに増える識別番号
 	uint32_t attackSerial_ = 0;
 
+	// 現在のバットの奥行き角度
+	float currentBatSwingAngleDegree_ = 0.0f;
+
+	// バットが正面を横切ったフレームか
+	bool isAttackImpactFrame_ = false;
+
+	// ↓ 必要なくなった
 	// バット用モデル
 	KamataEngine::Model* modelBat_ = nullptr;
 	KamataEngine::WorldTransform worldTransformBat_;
 	bool isBatVisible_ = false;
+	// 
 
 	/*--------------- 空中攻撃制御 ---------------*/
 	// 空中攻撃中に縦速度へ掛ける減衰率

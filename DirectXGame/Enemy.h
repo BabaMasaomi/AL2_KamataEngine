@@ -120,6 +120,9 @@ public:
 	// ノックバック後の硬直中か
 	bool IsHitRecovery() const { return isHitRecovery_; }
 
+	// プレイヤーの溜め攻撃による吹き飛びを開始
+	void StartBlownAway(float direction);
+
 	// 吹き飛び中で、他の敵へ攻撃できるか
 	bool CanHitOtherEnemy() const;
 
@@ -256,9 +259,6 @@ private:
 	// 経過時間
 	float walkTimer_ = 0.0f;
 
-	//// 計画した足場へのジャンプ中か
-	//bool isPlannedPlatformJump_ = false;
-
 	/*--------------- 通常状態の地形移動 ---------------*/
 	// 接地しているか
 	bool isOnGround_ = false;
@@ -380,7 +380,7 @@ private:
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP
-	static constexpr int32_t kMaxHp = 6;
+	static constexpr int32_t kMaxHp = 60;
 
 	// 現在のHP
 	int32_t hp_ = kMaxHp;
@@ -467,7 +467,7 @@ private:
 	static constexpr float kBlownAwaySpeed = 0.75f;
 
 	// この時間までは速度を維持する
-	static constexpr float kBlownAwayFlyingTime = 2.0f;
+	static constexpr float kBlownAwayFlyingTime = 2.5f;
 
 	// 終了時の速度減衰率
 	static constexpr float kBlownAwayStopAttenuation = 0.88f;

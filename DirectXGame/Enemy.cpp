@@ -1446,7 +1446,6 @@ void Enemy::BehaviorRootUpdate() {
 		velocity_.x = 0.0f;
 	}
 
-
 	// ジャンプ後の着地待機時間を減算
 	if (chaseJumpState_ == ChaseJumpState::kLandingWait) {
 
@@ -1482,8 +1481,8 @@ void Enemy::BehaviorRootUpdate() {
 		velocity_.x = 0.0f;
 	}
 
-	/*UpdateFacingDirection();
-	UpdateRootMapMovement();*/
+	UpdateFacingDirection();
+	UpdateRootMapMovement();
 
 	/*========== アニメーション ==========*/
 	// 歩行中だけアニメーションさせる
@@ -1672,6 +1671,8 @@ void Enemy::BehaviorBlownAwayInitialize() {
 
 // 吹っ飛び更新
 void Enemy::BehaviorBlownAwayUpdate() {
+	KamataEngine::DebugText::GetInstance()->ConsolePrintf("BlownAwayUpdate: velocity=(%f, %f) stopped=%d\n", blownAwayVelocity_.x, blownAwayVelocity_.y, isBlownAwayStopped_);
+
 	const float deltaTime = 1.0f / 60.0f;
 
 	blownAwayTimer_ += deltaTime;
@@ -1903,14 +1904,6 @@ void Enemy::BehaviorBlownAwayUpdate() {
 
 			blownAwayVelocity_.y = -blownAwayVelocity_.y;
 
-			bouncedThisFrame = true;
-		}
-
-		if (hitCeiling) {
-			nextY = resolvedY;
-
-			blownAwayVelocity_.y = -blownAwayVelocity_.y;
-
 			hitY = true;
 			bouncedThisFrame = true;
 		}
@@ -1959,19 +1952,10 @@ void Enemy::BehaviorBlownAwayUpdate() {
 
 			blownAwayVelocity_.y = -blownAwayVelocity_.y;
 
-			bouncedThisFrame = true;
-		}
-
-		if (hitFloor) {
-			nextY = resolvedY;
-
-			blownAwayVelocity_.y = -blownAwayVelocity_.y;
-
 			hitY = true;
 			bouncedThisFrame = true;
 		}
-
-	}		
+	}
 
 	/*========== 画面上下端との反射 ==========*/
 	if (camera_) {
@@ -2200,29 +2184,24 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 	float hitDirection = differenceX >= 0.0f ? 1.0f : -1.0f;
 
 	// エフェクト位置
-	Vector3 effectPos = {
-	    (worldTransform_.translation_.x + player->GetWorldTransform().translation_.x) / 2.0f,
+	Vector3 effectPos = worldTransform_.translation_;
 
-	    (worldTransform_.translation_.y + player->GetWorldTransform().translation_.y) / 2.0f,
+	// 敵のプレイヤー側の表面に配置
+	effectPos.x -= hitDirection * (kWidth * 0.2f);
 
-	    0.0f,
-	};
+	// 高さはプレイヤーと敵の位置を考慮する
+	effectPos.y = std::clamp(player->GetWorldTransform().translation_.y, worldTransform_.translation_.y - kHeight * 0.35f, worldTransform_.translation_.y + kHeight * 0.35f);
 
 	/*========== スタン中への溜め攻撃 ==========*/
-
 	if (behavior_ == BehaviorEnemy::kStunned && attackType == AttackType::kCharged) {
 
-		// スタン中への溜め攻撃はHPを減らさず、
-		// 敵を吹き飛ばして攻撃弾にする
-		blownAwayDirection_ = hitDirection;
-
-		isHitKnockBack_ = false;
-		hitKnockBackTimer_ = 0.0f;
-
-		behaviorRequest_ = BehaviorEnemy::kBlownAway;
+		// ヒットストップ前に吹き飛び状態と初速を確定
+		StartBlownAway(hitDirection);
 
 		if (gameScene_) {
-			gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
+			gameScene_->CreateHitEffect(effectPos, HitEffectType::kChargedHit);
+
+			gameScene_->StartChargedAttackHitStop();
 		}
 
 		return true;
@@ -2303,6 +2282,25 @@ void Enemy::StartStunShockwaveKnockBack(float direction) {
 
 	isHitRecovery_ = false;
 	hitRecoveryTimer_ = 0.0f;
+}
+
+// プレイヤーの溜め攻撃による吹き飛びを開始
+void Enemy::StartBlownAway(float direction) {
+	blownAwayDirection_ = direction >= 0.0f ? 1.0f : -1.0f;
+
+	// 保留中の状態変更を取り消す
+	behaviorRequest_ = BehaviorEnemy::kUnknown;
+
+	// 吹き飛び状態を即座に確定
+	behavior_ = BehaviorEnemy::kBlownAway;
+
+	// 初速などを設定
+	BehaviorBlownAwayInitialize();
+
+	// ヒットストップ中にも正しい姿勢を描画できるようにする
+	transform_.worldMatrixUpdate(worldTransform_);
+
+	KamataEngine::DebugText::GetInstance()->ConsolePrintf("StartBlownAway: direction=%f velocity=(%f, %f)\n", blownAwayDirection_, blownAwayVelocity_.x, blownAwayVelocity_.y);
 }
 
 // 吹き飛び中で、他の敵へ攻撃できるか

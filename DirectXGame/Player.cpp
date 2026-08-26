@@ -173,7 +173,7 @@ void Player::BehaviorRootInitialize() {
 /// </summary>
 void Player::BehaviorRootUpdate() {
 	// 攻撃キーを押したら
-	if (Input::GetInstance()->TriggerKey(DIK_Z)) {
+	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
 		// 地上なら何度でも攻撃可能
 		if (onGround_) {
 			behaiviorRequest_ = Behavior::kAttack;
@@ -322,6 +322,20 @@ void Player::BehaviorAttackUpdate() {
 	const float deltaTime = 1.0f / 60.0f;
 	const float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
 
+	// 正面通過判定は1フレームだけ有効
+	isAttackImpactFrame_ = false;
+
+	const float degreeToRadian = std::numbers::pi_v<float> / 180.0f;
+
+	// バットの奥行き角度と、先端の高さをまとめて設定
+	auto SetBatRotation = [&](float swingAngleDegree, float tipLiftDegree) {
+		// 画面手前から奥へのスイング
+		worldTransformAttack_.rotation_.x = swingAngleDegree * degreeToRadian;
+
+		// 基本は水平。tipLiftDegreeで先端を上げる
+		worldTransformAttack_.rotation_.z = (-90.0f - tipLiftDegree) * degreeToRadian * direction;
+	};
+
 	attackTimer_ += deltaTime;
 
 	// 空中攻撃中は上昇・落下を滑らかに停止
@@ -335,21 +349,22 @@ void Player::BehaviorAttackUpdate() {
 
 	switch (attackPhase_) {
 	case AttackPhase::kCharging: {
-		// Zキーを押している間
-		if (Input::GetInstance()->PushKey(DIK_Z)) {
+		// SPACEキーを押している間
+		if (Input::GetInstance()->PushKey(DIK_SPACE)) {
 			chargeTimer_ += deltaTime;
-
 			chargeTimer_ = std::min(chargeTimer_, kChargeMaxTime);
 
 			float t = std::clamp(chargeTimer_ / kChargeRequiredTime, 0.0f, 1.0f);
 
-			// 溜めるほど大きく振りかぶる
-			float angleDegree = EaseOut(0.0f, kChargeBatAngle, t);
+			// バットを斜め後ろへ引く
+			float swingAngleDegree = EaseOut(kBatAngleStart, kChargeBatAngle, t);
 
-			worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
-			worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
+			// 溜めるほど先端を上げる
+			float tipLiftDegree = EaseOut(kNormalBatTipLift, kChargeBatTipLift, t);
 
-			// 規定時間に達した
+			SetBatRotation(swingAngleDegree, tipLiftDegree);
+
+			// この処理が抜けていた
 			if (chargeTimer_ >= kChargeRequiredTime) {
 				isChargeReady_ = true;
 			}
@@ -357,10 +372,9 @@ void Player::BehaviorAttackUpdate() {
 			break;
 		}
 
-		// Zキーを離した瞬間
+		// SPACEキーを離したときに攻撃種類を確定
 		attackType_ = isChargeReady_ ? AttackType::kCharged : AttackType::kNormal;
 
-		// ここから1回の攻撃として扱う
 		++attackSerial_;
 
 		attackTimer_ = 0.0f;
@@ -370,13 +384,16 @@ void Player::BehaviorAttackUpdate() {
 
 	case AttackPhase::kStartup: {
 		float startupTime = attackType_ == AttackType::kCharged ? 0.12f : kAttackStartupTime;
-		float t = std::clamp(attackTimer_ / startupTime, 0.0f, 1.0f);
-		float startAngle = attackType_ == AttackType::kCharged ? kChargeBatAngle : kBatAngleStart;
 
-		// 溜め中の角度から、攻撃開始位置へ合わせる
-		float angleDegree = EaseOut(startAngle, kBatAngleStart, t);
-		worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
-		worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
+		float swingStart = attackType_ == AttackType::kCharged ? kChargeBatAngle : kBatAngleStart;
+
+		float tipLift = attackType_ == AttackType::kCharged ? kChargeBatTipLift : kNormalBatTipLift;
+
+		// 振り始めの姿勢を維持
+		SetBatRotation(swingStart, tipLift);
+
+		// 正面通過判定の開始角度として記録
+		currentBatSwingAngleDegree_ = swingStart;
 
 		if (attackTimer_ >= startupTime) {
 			attackTimer_ = 0.0f;
@@ -393,13 +410,42 @@ void Player::BehaviorAttackUpdate() {
 
 		float swingStart = attackType_ == AttackType::kCharged ? kChargeBatAngle : kBatAngleStart;
 
+		float startTipLift = attackType_ == AttackType::kCharged ? kChargeBatTipLift : kNormalBatTipLift;
+
 		float t = std::clamp(attackTimer_ / activeTime, 0.0f, 1.0f);
 
-		float angleDegree = EaseOut(swingStart, kBatAngleEnd, t);
+		// 手前から奥へ振る
+		float swingAngleDegree = EaseOut(swingStart, kBatAngleEnd, t);
 
-		worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
-		worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
-		// 溜め攻撃は少し強く踏み込む
+		// 直前のバット角度
+		float previousSwingAngleDegree = currentBatSwingAngleDegree_;
+
+		// 現在角度を保存
+		currentBatSwingAngleDegree_ = swingAngleDegree;
+
+		// バットが画面正面である0度を横切った瞬間
+		if ((previousSwingAngleDegree < 0.0f && currentBatSwingAngleDegree_ >= 0.0f) || (previousSwingAngleDegree > 0.0f && currentBatSwingAngleDegree_ <= 0.0f)) {
+
+			isAttackImpactFrame_ = true;
+		}
+
+		// 前半で水平にし、後半で再び先端を上げる
+		float tipLiftDegree = 0.0f;
+
+		if (t < 0.5f) {
+			float firstHalfT = t / 0.5f;
+
+			tipLiftDegree = EaseOut(startTipLift, 0.0f, firstHalfT);
+
+		} else {
+			float secondHalfT = (t - 0.5f) / 0.5f;
+
+			tipLiftDegree = EaseOut(0.0f, kBatFollowThroughLift, secondHalfT);
+		}
+
+		SetBatRotation(swingAngleDegree, tipLiftDegree);
+
+		// 踏み込み
 		velocity_.x = direction * stepSpeed * (1.0f - t);
 
 		if (attackTimer_ >= activeTime) {
@@ -417,9 +463,9 @@ void Player::BehaviorAttackUpdate() {
 		float t = std::clamp(attackTimer_ / recoveryTime, 0.0f, 1.0f);
 
 		float angleDegree = EaseOut(kBatAngleEnd, 0.0f, t);
+		float tipLiftDegree = EaseOut(kBatFollowThroughLift, 0.0f, t);
 
-		worldTransformAttack_.rotation_.z = -90.0f * std::numbers::pi_v<float> / 180.0f * direction;
-		worldTransformAttack_.rotation_.x = angleDegree * std::numbers::pi_v<float> / 180.0f;
+		SetBatRotation(angleDegree, tipLiftDegree);
 
 		velocity_.x = 0.0f;
 
@@ -958,10 +1004,7 @@ bool Player::IsAttack() {
 }
 
 // 敵を攻撃できるか
-bool Player::CanAttackEnemy() const {
-	// スイングモーション中のみ攻撃可能
-	return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kActive;
-}
+bool Player::CanAttackEnemy() const { return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kActive && isAttackImpactFrame_; }
 
 // ダメージを受けるか
 bool Player::CanReceiveDamage() const { return !isDead_ && behaivior_ != Behavior::kKnockBack; }
@@ -989,4 +1032,7 @@ void Player::EndAttack() {
 
 	isChargeReady_ = false;
 	hasHitEnemy_ = false;
+
+	currentBatSwingAngleDegree_ = 0.0f;
+	isAttackImpactFrame_ = false;
 }

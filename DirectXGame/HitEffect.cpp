@@ -16,25 +16,69 @@ Camera* HitEffect::camera_ = nullptr;
 /// </summary>
 /// <param name="pos">エフェクトの発生座標</param>
 void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
-	circleWorldTransform_.Initialize();
-	// 円形エフェクト
-	circleWorldTransform_.translation_ = pos;
-	circleWorldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
-
-	// エフェクトの種類を初期化
+	// エフェクト種類
 	effectType_ = type;
 
-	// 乱数範囲を指定
-	std::uniform_real_distribution<float> rotationDistribution(0.0f, 100.0f);
-	// 楕円エフェクト
-	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
-		worldTransform.scale_ = {4.0f, 0.3f, 2.0f};
-		// 楕円エフェクトの傾きの乱数
-		float ellipseRotate = rotationDistribution(randomEngine);
-		worldTransform.rotation_ = {0.0f, 0.0f, ellipseRotate};
-		worldTransform.translation_ = pos;
+	// 初期状態
+	expandTimer_ = 0.0f;
+	fadeTimer_ = 0.0f;
+	alpha_ = 1.0f;
+	isDead_ = false;
 
+	circleWorldTransform_.Initialize();
+	circleWorldTransform_.translation_ = pos;
+
+	// 溜め攻撃は最初から最大サイズ
+	if (effectType_ == HitEffectType::kChargedHit) {
+		circleWorldTransform_.scale_ = {
+		    kChargedHitInitialScale,
+		    kChargedHitInitialScale,
+		    kChargedHitInitialScale,
+		};
+
+		// 拡大フェーズを省略してフェードから開始
+		behavior_ = HitEffectBehavior::kFadeOut;
+		behaviorRequest_ = HitEffectBehavior::kFadeOut;
+
+	} else {
+		circleWorldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
+
+		behavior_ = HitEffectBehavior::kExpand;
+		behaviorRequest_ = HitEffectBehavior::kExpand;
+	}
+
+	std::uniform_real_distribution<float> rotationDistribution(0.0f, 100.0f);
+
+	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+
+		// Initializeを先に行う
 		worldTransform.Initialize();
+
+		if (effectType_ == HitEffectType::kChargedHit) {
+
+			// 溜め攻撃は放射状部分も少し大きくする
+			worldTransform.scale_ = {5.5f, 0.45f, 2.0f};
+
+		} else {
+			worldTransform.scale_ = {4.0f, 0.3f, 2.0f};
+		}
+
+		float ellipseRotate = rotationDistribution(randomEngine);
+
+		worldTransform.rotation_ = {0.0f, 0.0f, ellipseRotate};
+
+		worldTransform.translation_ = pos;
+	}
+
+	/*
+	 * 生成直後にヒットストップへ入っても正しく描画できるよう、
+	 * この時点で行列を更新する。
+	 */
+	transform_.worldMatrixUpdate(circleWorldTransform_);
+
+	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+
+		transform_.worldMatrixUpdate(worldTransform);
 	}
 }
 
@@ -122,22 +166,35 @@ void HitEffect::BehaviorFadeOutInitialize() {
 
 // エフェクトフェードアウトの更新
 void HitEffect::BehaviorFadeOutUpdate() {
-	float fadeTime;
+	float fadeTime = 0.0f;
 
-	if (effectType_ == HitEffectType::kHit) {
+	if (effectType_ == HitEffectType::kChargedHit) {
+
+		fadeTime = kChargedHitFadeTime;
+
+	} else if (effectType_ == HitEffectType::kHit) {
+
 		fadeTime = 0.3f;
+
 	} else {
 		fadeTime = 0.12f;
 	}
-	// タイマーを加算(1/60秒)
+
 	fadeTimer_ += 1.0f / 60.0f;
-	// イージングでalpha値を変更
+
 	float t = std::clamp(fadeTimer_ / fadeTime, 0.0f, 1.0f);
-	// 透明度を変更
-	alpha_ = EaseOut(1.0f, 0.0f, t);
-	// modelに反映させる
-	model_->SetAlpha(alpha_);
-	// フェードアウトが終わったら消す
+
+	// 徐々に透明にする
+	alpha_ = EaseIn(1.0f, 0.0f, t);
+
+	// 溜め攻撃は消えながら少しだけ広がる
+	if (effectType_ == HitEffectType::kChargedHit) {
+
+		float scale = EaseOut(kChargedHitInitialScale, kChargedHitEndScale, t);
+
+		circleWorldTransform_.scale_ = {scale, scale, scale};
+	}
+
 	if (t >= 1.0f) {
 		isDead_ = true;
 	}
@@ -147,29 +204,27 @@ void HitEffect::BehaviorFadeOutUpdate() {
 /// 描画処理
 /// </summary>
 void HitEffect::Draw() {
-	// モデルの描画
-	if (effectType_ == HitEffectType::kHit) {
+	// 溜め攻撃も通常ヒットと同じモデルを使う
+	if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kChargedHit) {
+
 		model_ = hitModel_;
+
 	} else {
 		model_ = guardModel_;
 	}
 
-	// 円エフェクト
+	// このエフェクトの透明度を描画直前に反映
+	model_->SetAlpha(alpha_);
+
 	model_->Draw(circleWorldTransform_, *camera_);
-	// 楕円エフェクト
-	if (model_ == hitModel_) {
+
+	if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kChargedHit) {
+
 		for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+
 			model_->Draw(worldTransform, *camera_);
 		}
 	}
-
-	//// モデルの描画
-	//// 円エフェクト
-	//model_->Draw(circleWorldTransform_, *camera_);
-	//// 楕円エフェクト
-	//for (WorldTransform& worldTransform : ellipseWorldTransform_) {
-	//	model_->Draw(worldTransform, *camera_);
-	//}
 }
 
 /// <summary>
