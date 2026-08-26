@@ -177,6 +177,15 @@ public:
 	// 攻撃を終わらせる
 	void EndAttack();
 
+	// 死亡演出を開始
+	void StartDeathAnimation();
+
+	// 死亡演出を更新
+	void UpdateDeathAnimation();
+
+	// 死亡演出が終了したか
+	bool IsDeathAnimationFinished() const { return isDeathAnimationFinished_; }
+
 	// アクセッサ
 	// ゲッター
 	bool GetIsDead() { return isDead_; }
@@ -349,7 +358,7 @@ private:
 	static constexpr float kBatAngleEnd = 100.0f;
 
 	// 攻撃判定の大きさ
-	static constexpr float kAttackWidth = 3.8f;
+	static constexpr float kAttackWidth = 4.0f;
 	static constexpr float kAttackHeight = 2.6f;
 
 	// プレイヤー中心から攻撃判定までの距離
@@ -430,6 +439,25 @@ private:
 
 	// 明滅中の最低透明度
 	static constexpr float kInvincibleMinAlpha = 0.55f;
+
+	/*--------------- 死亡演出 ---------------*/
+	// 死亡演出中か
+	bool isDeathAnimationPlaying_ = false;
+
+	// 死亡演出が終了したか
+	bool isDeathAnimationFinished_ = false;
+
+	// 死亡演出の経過時間
+	float deathAnimationTimer_ = 0.0f;
+
+	// 死亡演出開始時の大きさ
+	KamataEngine::Vector3 deathAnimationStartScale_ = {2.0f, 2.0f, 2.0f};
+
+	// 回転・縮小にかける時間
+	static constexpr float kDeathAnimationTime = 0.9f;
+
+	// 演出中に回転する回数
+	static constexpr float kDeathRotationCount = 3.0f;
 
 	/*--------------- 武器モデル ---------------*/
 	// 攻撃エフェクトモデル

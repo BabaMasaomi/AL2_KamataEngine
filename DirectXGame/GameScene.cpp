@@ -66,7 +66,7 @@ void GameScene::Initialize() {
 
 	/*--------------- プレイヤー ---------------*/
 	// プレイヤーの3Dモデルの生成
-	model_ = Model::CreateFromOBJ("player", true);
+	model_ = Model::CreateFromOBJ("CapPlayer", true);
 	// バットモデルの生成
 	modelAttack_ = Model::CreateFromOBJ("Bat", true);
 
@@ -87,25 +87,10 @@ void GameScene::Initialize() {
 
 	/*--------------- 雑魚敵 ---------------*/
 	// 敵の3Dモデルの生成
-	modelEnemy_ = Model::CreateFromOBJ("enemy", true);
-
-	//// 初期敵を別々の位置へ配置
-	// const uint32_t initialEnemyXIndices[kInitialEnemyCount] = {
-	//     24,
-	//     38,
-	//     52,
-	// };
+	modelEnemy_ = Model::CreateFromOBJ("balloonEnemy", true);
 
 	// チュートリアル用に1体だけ生成
-	// 従来の敵は一時停止しておく
 	InitializeTutorial();
-
-	/*for (size_t i = 0; i < kInitialEnemyCount; ++i) {
-
-	    Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(initialEnemyXIndices[i], 17);
-
-	    SpawnEnemy(enemyPosition);
-	}*/
 
 	isReinforcementUnlocked_ = false;
 	playTimer_ = 0.0f;
@@ -163,6 +148,10 @@ void GameScene::Initialize() {
 
 	// デバッグカメラの生成
 	debugCamera_ = new DebugCamera(1280, 720);
+
+	/*-------------------- プレイヤー死亡演出 --------------------*/
+	hasCreatedPlayerDeathEffect_ = false;
+	playerDeathEffectTimer_ = 0.0f;
 
 	/*-------------------- ゲームの終了判定 --------------------*/
 	finished_ = false;
@@ -372,13 +361,34 @@ void GameScene::Update() {
 		// 天球の更新
 		skydome_->Update();
 
+		// プレイヤー本体の死亡演出を更新
+		player_->UpdateDeathAnimation();
+
+		if (player_->IsDeathAnimationFinished() && !hasCreatedPlayerDeathEffect_) {
+
+			hasCreatedPlayerDeathEffect_ = true;
+
+			// 敵の死亡時に使っているエフェクトを流用
+			CreateHitEffect(player_->GetWorldPos(), HitEffectType::kHit);
+
+			playerDeathEffectTimer_ = kPlayerDeathEffectWaitTime;
+		}
+
+		/*========== 死亡エフェクト表示時間 ==========*/
+		if (hasCreatedPlayerDeathEffect_ && playerDeathEffectTimer_ > 0.0f) {
+
+			playerDeathEffectTimer_ -= deltaTime;
+
+			playerDeathEffectTimer_ = (std::max)(playerDeathEffectTimer_, 0.0f);
+		}
+
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
-
-			// 通常・スタン状態の敵同士の重なりを解消
-			ResolveEnemyOverlaps();
 		}
+
+		// 通常・スタン状態の敵同士の重なりを解消
+		ResolveEnemyOverlaps();
 
 		// ヒットエフェクトの更新
 		for (HitEffect* hitEffect : hitEffects_) {
@@ -879,7 +889,6 @@ void GameScene::ResolveEnemyOverlaps() {
 			AABB secondAABB = second->GetAABB();
 
 			/*========== Y方向が重なっているか ==========*/
-
 			float overlapY = (std::min)(firstAABB.max.y, secondAABB.max.y) - (std::max)(firstAABB.min.y, secondAABB.min.y);
 
 			if (overlapY <= 0.0f) {
@@ -887,7 +896,6 @@ void GameScene::ResolveEnemyOverlaps() {
 			}
 
 			/*========== X方向が重なっているか ==========*/
-
 			float overlapX = (std::min)(firstAABB.max.x, secondAABB.max.x) - (std::max)(firstAABB.min.x, secondAABB.min.x);
 
 			if (overlapX <= 0.0f) {
@@ -897,7 +905,6 @@ void GameScene::ResolveEnemyOverlaps() {
 			overlapX += kEnemySeparationMargin;
 
 			Vector3 firstPosition = first->GetWorldPos();
-
 			Vector3 secondPosition = second->GetWorldPos();
 
 			/*
@@ -913,8 +920,51 @@ void GameScene::ResolveEnemyOverlaps() {
 			}
 
 			bool leftIsStunned = leftEnemy->IsStunned();
-
 			bool rightIsStunned = rightEnemy->IsStunned();
+
+			/*========== ノックバック敵が後ろの敵を押す ==========*/
+			bool leftIsHitKnockBack = leftEnemy->IsHitKnockBack();
+			bool rightIsHitKnockBack = rightEnemy->IsHitKnockBack();
+
+			/*
+			 * 左側の敵が右へノックバックしている場合、
+			 * 右側の敵だけを右へ押す。
+			 */
+			if (leftIsHitKnockBack && leftEnemy->GetHitKnockBackDirection() > 0.0f && !rightIsHitKnockBack) {
+
+				float pushedDistance = rightEnemy->MoveForEnemySeparation(overlapX);
+
+				/*
+				 * 右側の敵が壁などで押し切れなかった場合、
+				 * 残った重なり分だけノックバック敵を戻す。
+				 */
+				float remainingOverlap = (std::max)(overlapX - (std::max)(pushedDistance, 0.0f), 0.0f);
+
+				if (remainingOverlap > 0.0f) {
+					leftEnemy->MoveForEnemySeparation(-remainingOverlap);
+				}
+
+				continue;
+			}
+
+			/*
+			 * 右側の敵が左へノックバックしている場合、
+			 * 左側の敵だけを左へ押す。
+			 */
+			if (rightIsHitKnockBack && rightEnemy->GetHitKnockBackDirection() < 0.0f && !leftIsHitKnockBack) {
+
+				float pushedMovement = leftEnemy->MoveForEnemySeparation(-overlapX);
+
+				float pushedDistance = (std::max)(-pushedMovement, 0.0f);
+
+				float remainingOverlap = (std::max)(overlapX - pushedDistance, 0.0f);
+
+				if (remainingOverlap > 0.0f) {
+					rightEnemy->MoveForEnemySeparation(remainingOverlap);
+				}
+
+				continue;
+			}
 
 			/*========== 通常敵同士 ==========*/
 			if (!leftIsStunned && !rightIsStunned) {
@@ -1222,14 +1272,21 @@ void GameScene::ChangePhase() {
 
 			phase_ = GameScene::Phase::kDeath;
 
-			const Vector3 deathParticlesPosition = player_->GetWorldPos();
+			hasCreatedPlayerDeathEffect_ = false;
+
+			playerDeathEffectTimer_ = 0.0f;
+
+			// プレイヤー本体の死亡演出を開始
+			player_->StartDeathAnimation();
+
+			/*const Vector3 deathParticlesPosition = player_->GetWorldPos();
 
 			player_->SetWorldPos({-100.0f, -100.0f, -100.0f});
 
 			player_->Update();
 
 			deathParticles_ = new DeathParticles();
-			deathParticles_->Initialize(modelParticles_, &camera_, deathParticlesPosition);
+			deathParticles_->Initialize(modelParticles_, &camera_, deathParticlesPosition);*/
 
 		} else if (playTimer_ >= kClearTime) {
 			// 30秒生存したらクリア
@@ -1243,7 +1300,7 @@ void GameScene::ChangePhase() {
 		break;
 
 	case GameScene::Phase::kDeath:
-		if (deathParticles_ && deathParticles_->GetIsFinished()) {
+		if (player_->IsDeathAnimationFinished() && hasCreatedPlayerDeathEffect_ && playerDeathEffectTimer_ <= 0.0f) {
 
 			phase_ = GameScene::Phase::kFadeOut;
 

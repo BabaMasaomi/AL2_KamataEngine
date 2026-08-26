@@ -154,6 +154,16 @@ private:
 	// デバッグカメラ有効
 	bool isDebugCameraActive_ = false;
 
+	/*-------------------- プレイヤー死亡演出 --------------------*/
+	// 死亡時のヒットエフェクトを生成したか
+	bool hasCreatedPlayerDeathEffect_ = false;
+
+	// エフェクト表示後の待ち時間
+	float playerDeathEffectTimer_ = 0.0f;
+
+	// フェード開始までエフェクトを見せる時間
+	static constexpr float kPlayerDeathEffectWaitTime = 0.25f;
+
 	/*-------------------- スコア --------------------*/
 	// 現在のスコア
 	uint32_t score_ = 0;

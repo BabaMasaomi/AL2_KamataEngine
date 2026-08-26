@@ -144,7 +144,12 @@ public:
 
 	// 敵同士の重なり補正対象か
 	bool CanResolveEnemyOverlap() const {
-		if (isHitKnockBack_ || isHitRecovery_) {
+		/*
+		 * ノックバック後の硬直中は押さない。
+		 * ノックバック中は後続の敵を押すため、
+		 * 補正対象に含める。
+		 */
+		if (isHitRecovery_) {
 			return false;
 		}
 
@@ -166,6 +171,9 @@ public:
 
 	bool IsTutorialEnemy() const { return purpose_ != EnemyPurpose::kNormal; }
 
+	// 通常攻撃などによる小ノックバック中か
+	bool IsHitKnockBack() const { return isHitKnockBack_; }	
+
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
 
@@ -178,7 +186,10 @@ public:
 	int32_t GetHp() const { return hp_; }
 	int32_t GetStunValue() const { return stunHitCount_; }
 
-	EnemyPurpose GetPurpose() const { return purpose_; }	
+	EnemyPurpose GetPurpose() const { return purpose_; }
+
+	// 小ノックバックの方向
+	float GetHitKnockBackDirection() const { return hitKnockBackDirection_; }
 
 	// セッター
 	void SetGameScene(GameScene* gameScene);
@@ -253,7 +264,7 @@ private:
 	KamataEngine::Vector3 velocity_ = {};
 
 	// 基礎移動速度
-	static inline const float kMoveSpeed = 0.05f;
+	static inline const float kMoveSpeed = 0.04f;
 
 	// 敵の当たり判定サイズ
 	static inline const float kWidth = 1.6f;
@@ -450,7 +461,7 @@ private:
 	static constexpr float kHitKnockBackTime = 0.12f;
 
 	// ノックバック速度
-	static constexpr float kHitKnockBackSpeed = 1.18f;
+	static constexpr float kHitKnockBackSpeed = 1.05f;
 
 	// 今回のノックバックに使用する速度
 	float currentHitKnockBackSpeed_ = kHitKnockBackSpeed;

@@ -50,6 +50,12 @@ void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const 
 
 	isInvincible_ = false;
 	invincibleTimer_ = 0.0f;
+
+	// 死亡演出用変数の初期化
+	isDeathAnimationPlaying_ = false;
+	isDeathAnimationFinished_ = false;
+	deathAnimationTimer_ = 0.0f;
+	deathAnimationStartScale_ = worldTransform_.scale_;
 }
 
 /// <summary>
@@ -1093,4 +1099,74 @@ void Player::EndAttack() {
 
 	currentBatSwingAngleDegree_ = 0.0f;
 	isAttackImpactFrame_ = false;
+}
+
+// 死亡演出を開始
+void Player::StartDeathAnimation() {
+	// 二重開始を防止
+	if (isDeathAnimationPlaying_ || isDeathAnimationFinished_) {
+		return;
+	}
+
+	isDeathAnimationPlaying_ = true;
+	isDeathAnimationFinished_ = false;
+
+	deathAnimationTimer_ = 0.0f;
+	deathAnimationStartScale_ = worldTransform_.scale_;
+
+	// 移動を停止
+	velocity_ = {};
+
+	// 攻撃中だった場合はバットを消す
+	EndAttack();
+
+	// 無敵時間の点滅も終了
+	isInvincible_ = false;
+	invincibleTimer_ = 0.0f;
+
+	// 回転開始角度を統一
+	worldTransform_.rotation_.x = 0.0f;
+	worldTransform_.rotation_.z = 0.0f;
+
+	transform_.worldMatrixUpdate(worldTransform_);
+}
+
+// 死亡演出を更新
+void Player::UpdateDeathAnimation() {
+	if (!isDeathAnimationPlaying_ || isDeathAnimationFinished_) {
+		return;
+	}
+
+	constexpr float deltaTime = 1.0f / 60.0f;
+	constexpr float twoPi = std::numbers::pi_v<float> * 2.0f;
+
+	deathAnimationTimer_ += deltaTime;
+
+	float t = std::clamp(deathAnimationTimer_ / kDeathAnimationTime, 0.0f, 1.0f);
+
+	/*
+	 * 最初はゆっくり縮み、
+	 * 終盤で急速に小さくなる。
+	 */
+	float shrinkT = t * t;
+	float scaleRate = 1.0f - shrinkT;
+
+	worldTransform_.scale_ = {
+	    deathAnimationStartScale_.x * scaleRate,
+	    deathAnimationStartScale_.y * scaleRate,
+	    deathAnimationStartScale_.z * scaleRate,
+	};
+
+	// 画面に対してくるくる回転
+	worldTransform_.rotation_.z = twoPi * kDeathRotationCount * t;
+
+	transform_.worldMatrixUpdate(worldTransform_);
+
+	if (t >= 1.0f) {
+		worldTransform_.scale_ = {};
+		transform_.worldMatrixUpdate(worldTransform_);
+
+		isDeathAnimationPlaying_ = false;
+		isDeathAnimationFinished_ = true;
+	}
 }
