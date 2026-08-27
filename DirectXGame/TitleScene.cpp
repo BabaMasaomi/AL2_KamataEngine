@@ -7,6 +7,8 @@ using namespace KamataEngine;
 /*-------------------- コンストラクタ&デストラクタ --------------------*/
 TitleScene::TitleScene() {}
 TitleScene::~TitleScene() {
+	StopTitleBgm();
+
 	delete modelTitle_;
 	modelTitle_ = nullptr;
 
@@ -106,6 +108,16 @@ void TitleScene::Initialize() {
 
 	selectSoundHandle_ = audio_->LoadWave("select.mp3");
 
+	// BGM音声のロードと再生
+	titleBgmSoundHandle_ = audio_->LoadWave("TitleBGM.mp3");
+
+	titleBgmVoiceHandle_ = audio_->PlayWave(
+	    titleBgmSoundHandle_,
+	    true, // ループ
+	    kTitleBgmVolume);
+
+	isTitleBgmPlaying_ = true;
+
 	// メニューUIの初期化
 	InitializeMenu();
 
@@ -131,6 +143,7 @@ void TitleScene::Update() {
 	case TitleScene::Phase::kFadeOut:
 		// フェードアウトが終わったらゲームシーンに移行
 		if (fade_->IsFinished()) {
+			StopTitleBgm();
 			finished_ = true;
 		}
 		break;
@@ -234,10 +247,10 @@ void TitleScene::InitializeMenu() {
 	creditBackdropSprite_ = Sprite::Create(whiteTexture, {0.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 0.85f});
 	creditBackdropSprite_->SetSize({1280.0f, 720.0f});
 
-	uint32_t creditTexture = TextureManager::Load("ShowCreditUI_bat.png");
-	creditPlaceholderSprite_ = Sprite::Create(creditTexture, {640.0f, 330.0f});
+	uint32_t creditTexture = TextureManager::Load("Credit.png");
+	creditPlaceholderSprite_ = Sprite::Create(creditTexture, {640.0f, 360.0f});
 	creditPlaceholderSprite_->SetAnchorPoint({0.5f, 0.5f});
-	creditPlaceholderSprite_->SetSize({220.0f, 220.0f});
+	creditPlaceholderSprite_->SetSize({1280.0f, 720.0f});
 
 	UpdateMenuAppearance();
 }
@@ -347,4 +360,16 @@ void TitleScene::DrawMenu() {
 			sprite->Draw();
 		}
 	}
+}
+
+/* -------------------- タイトルBGMの停止 -------------------- */
+void TitleScene::StopTitleBgm() {
+	if (!audio_ || !isTitleBgmPlaying_) {
+		return;
+	}
+
+	audio_->StopWave(titleBgmVoiceHandle_);
+
+	titleBgmVoiceHandle_ = 0;
+	isTitleBgmPlaying_ = false;
 }

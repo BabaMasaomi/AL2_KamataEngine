@@ -12,6 +12,8 @@ using namespace KamataEngine;
 /*-------------------- コンストラクタ&デストラクタ --------------------*/
 GameScene::GameScene() {}
 GameScene::~GameScene() {
+	StopPlayBgm();
+
 	delete player_; // プレイヤーの解放
 
 	for (Enemy* enemy : enemies_) {
@@ -237,6 +239,19 @@ void GameScene::Initialize(bool skipTutorial) {
 	countStartSoundHandle_ = audio_->LoadWave("countStart.mp3");
 
 	gameFinishSoundHandle_ = audio_->LoadWave("gameFinish.mp3");
+
+	// BGMの読み込み
+	playBgmSoundHandle_ = audio_->LoadWave("PlayBGM.mp3");
+
+	tutorialGuideSoundHandle_ = audio_->LoadWave("select.mp3");
+
+	// チュートリアル・カウントダウン用の小さい音量で開始
+	playBgmVoiceHandle_ = audio_->PlayWave(playBgmSoundHandle_, true, kPlayBgmTutorialVolume);
+
+	isPlayBgmPlaying_ = true;
+
+	// 最初の移動ガイドでも1回鳴らすため
+	lastTutorialGuideSoundState_ = TutorialState::kFinished;
 
 	/*--------------- カメラ ---------------*/
 	// カメラコントローラの生成
@@ -505,6 +520,7 @@ void GameScene::Update() {
 
 		if (!isMainGameStarted_) {
 			UpdateTutorial();
+			UpdateTutorialGuideSound();
 		}
 
 		// ヒットエフェクトの更新
@@ -1036,6 +1052,36 @@ void GameScene::PlayEnemyBurstSound() {
 	}
 
 	audio_->PlayWave(enemyBurstSoundHandle_, false, 0.55f);
+}
+
+//
+void GameScene::StopPlayBgm() {
+	if (!audio_ || !isPlayBgmPlaying_) {
+		return;
+	}
+
+	audio_->StopWave(playBgmVoiceHandle_);
+
+	playBgmVoiceHandle_ = 0;
+	isPlayBgmPlaying_ = false;
+}
+
+//
+void GameScene::UpdateTutorialGuideSound() {
+	if (tutorialState_ == lastTutorialGuideSoundState_) {
+		return;
+	}
+
+	lastTutorialGuideSoundState_ = tutorialState_;
+
+	// Finishedには表示画像がないため鳴らさない
+	if (tutorialState_ == TutorialState::kFinished) {
+		return;
+	}
+
+	if (audio_) {
+		audio_->PlayWave(tutorialGuideSoundHandle_, false, 0.45f);
+	}
 }
 
 /*-------------------- ヒットストップ開始 --------------------*/
@@ -1628,6 +1674,11 @@ void GameScene::StartMainGame() {
 
 	isMainGameStarted_ = true;
 
+	// カウントダウン終了後、本編音量へ戻す
+	if (audio_ && isPlayBgmPlaying_) {
+		audio_->SetVolume(playBgmVoiceHandle_, kPlayBgmMainVolume);
+	}
+
 	score_ = 0;
 	UpdateScoreDisplay();
 	playTimer_ = 0.0f;
@@ -1681,6 +1732,8 @@ void GameScene::ChangePhase() {
 			gameResult_ = GameResult::kClear;
 			gameFinishTimer_ = 0.0f;
 
+			StopPlayBgm();
+
 			if (audio_) {
 				audio_->PlayWave(gameFinishSoundHandle_, false, 0.75f);
 			}
@@ -1696,6 +1749,8 @@ void GameScene::ChangePhase() {
 		if (player_->IsDeathAnimationFinished() && hasCreatedPlayerDeathEffect_ && isPlayerDeathEffectFinished) {
 
 			gameFinishTimer_ = 0.0f;
+
+			StopPlayBgm();
 
 			if (audio_) {
 				audio_->PlayWave(gameFinishSoundHandle_, false, 0.75f);
@@ -2044,20 +2099,6 @@ void GameScene::UpdateScoreDisplay() {
 		    kScoreDigitHeight,
 		});
 	}
-
-	// if (scoreIconSprite_ && scoreDigitCount_ > 0) {
-
-	//	// 一番左の数字の中心位置
-	//	float leftmostDigitX = kScoreRightX - static_cast<float>(scoreDigitCount_ - 1) * kScoreDigitSpacing;
-
-	//	// 数字列のすぐ左へアイコンを置く
-	//	float iconPositionX = leftmostDigitX - kScoreDigitWidth * 0.5f - kScoreIconMargin - kScoreIconWidth * 0.5f;
-
-	//	scoreIconSprite_->SetPosition({
-	//	    iconPositionX,
-	//	    kScoreTopY,
-	//	});
-	//}
 }
 
 void GameScene::DrawScore() {
@@ -2106,6 +2147,10 @@ void GameScene::InitializeCountdown() {
 void GameScene::StartCountdown() {
 	if (isCountdownActive_ || isMainGameStarted_) {
 		return;
+	}
+
+	if (audio_ && isPlayBgmPlaying_) {
+		audio_->SetVolume(playBgmVoiceHandle_, kPlayBgmTutorialVolume);
 	}
 
 	isCountdownActive_ = true;

@@ -109,4 +109,13 @@ private:
 
 	uint32_t cursorMovementSoundHandle_ = 0;
 	uint32_t selectSoundHandle_ = 0;
+
+	// リザルトジングル
+	uint32_t resultBgmSoundHandle_ = 0;
+	uint32_t resultBgmVoiceHandle_ = 0;
+	bool isResultBgmPlaying_ = false;
+
+	static constexpr float kResultBgmVolume = 0.60f;
+
+	void StopResultBgm();
 };

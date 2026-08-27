@@ -147,6 +147,15 @@ private:
 	uint32_t cursorMovementSoundHandle_ = 0;
 	uint32_t selectSoundHandle_ = 0;
 
+	// タイトルBGM
+	uint32_t titleBgmSoundHandle_ = 0;
+	uint32_t titleBgmVoiceHandle_ = 0;
+	bool isTitleBgmPlaying_ = false;
+
+	static constexpr float kTitleBgmVolume = 0.45f;
+
+	void StopTitleBgm();
+
 	/*-------------------- デバッグ --------------------*/
 	// デバッグカメラ有効
 	bool isDebugCameraActive_ = false;

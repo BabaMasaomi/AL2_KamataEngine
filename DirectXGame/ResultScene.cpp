@@ -6,6 +6,8 @@ using namespace KamataEngine;
 ResultScene::ResultScene() {}
 
 ResultScene::~ResultScene() {
+	StopResultBgm();
+
 	/*========== 背景 ==========*/
 
 	delete backgroundSprite_;
@@ -102,6 +104,13 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 	cursorMovementSoundHandle_ = audio_->LoadWave("cursorMovement.mp3");
 
 	selectSoundHandle_ = audio_->LoadWave("select.mp3");
+
+	// リザルトBGM再生
+	resultBgmSoundHandle_ = audio_->LoadWave("ResultBGM.mp3");
+
+	resultBgmVoiceHandle_ = audio_->PlayWave(resultBgmSoundHandle_, false, kResultBgmVolume);
+
+	isResultBgmPlaying_ = true;
 }
 
 void ResultScene::Update() {
@@ -329,6 +338,7 @@ void ResultScene::InitializeMenu() {
 	UpdateMenuAppearance();
 }
 
+// メニューの選択状態に応じて透明度を更新
 void ResultScene::UpdateMenuAppearance() {
 	for (size_t i = 0; i < menuSprites_.size(); ++i) {
 		if (!menuSprites_[i]) {
@@ -339,10 +349,23 @@ void ResultScene::UpdateMenuAppearance() {
 	}
 }
 
+// メニュー描画
 void ResultScene::DrawMenu() {
 	for (Sprite* sprite : menuSprites_) {
 		if (sprite) {
 			sprite->Draw();
 		}
 	}
+}
+
+// リザルトBGMを停止する
+void ResultScene::StopResultBgm() {
+	if (!audio_ || !isResultBgmPlaying_) {
+		return;
+	}
+
+	audio_->StopWave(resultBgmVoiceHandle_);
+
+	resultBgmVoiceHandle_ = 0;
+	isResultBgmPlaying_ = false;
 }

@@ -170,6 +170,24 @@ private:
 	uint32_t enemyBurstSoundHandle_ = 0;
 	uint32_t enemyCollisionSoundHandle_ = 0;
 
+	// 本編BGM
+	uint32_t playBgmSoundHandle_ = 0;
+	uint32_t playBgmVoiceHandle_ = 0;
+	bool isPlayBgmPlaying_ = false;
+
+	// 音量
+	static constexpr float kPlayBgmTutorialVolume = 0.20f;
+	static constexpr float kPlayBgmMainVolume = 0.48f;
+
+	// チュートリアル案内音
+	uint32_t tutorialGuideSoundHandle_ = 0;
+
+	// 前回音を鳴らした案内状態
+	TutorialState lastTutorialGuideSoundState_ = TutorialState::kFinished;
+
+	void StopPlayBgm();
+	void UpdateTutorialGuideSound();
+
 	/*--------------- ヒットストップ ---------------*/
 	// ヒットストップ開始までの残り時間
 	float hitStopDelayTimer_ = 0.0f;
