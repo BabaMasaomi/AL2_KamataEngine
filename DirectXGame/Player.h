@@ -481,6 +481,12 @@ private:
 	// エフェクト表示フラグ
 	bool isAttackEffect_ = false;
 
+	// Bat.obj上でのバット先端のY座標
+	static constexpr float kBatTipLocalY = 2.85446f;
+
+	// エフェクトをモデルより少しカメラ側へ出す距離
+	static constexpr float kChargeEffectFrontOffset = 0.12f;
+
 	/*--------------- ビヘイビア管理用 ---------------*/
 	// 振る舞い
 	Behavior behaivior_ = Behavior::kRoot;

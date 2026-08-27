@@ -2,6 +2,7 @@
 #include "KamataEngine.h"
 #include "Transform.h"
 #include "temporaryAABB.h"
+#include <array>
 
 // 前方宣言
 class MapChipField;
@@ -50,6 +51,13 @@ struct EnemyMapCollisionInfo {
 	bool hitBottom = false;
 
 	KamataEngine::Vector3 movement = {};
+};
+
+// 吹き飛び中の簡易残像
+struct EnemyTrailPoint {
+	KamataEngine::WorldTransform worldTransform;
+	float lifeTimer = 0.0f;
+	bool isActive = false;
 };
 
 class Enemy {
@@ -212,6 +220,10 @@ public:
 
 	void SetPurpose(EnemyPurpose purpose) { purpose_ = purpose; }
 
+	/*--------------------  残像モデル  --------------------*/
+	// circle.pngを使用する残像モデルを設定
+	static void SetTrailModel(KamataEngine::Model* model) { trailModel_ = model; }
+
 private:
 	// HPダメージを受ける
 	// 撃破された場合はtrue
@@ -254,6 +266,15 @@ private:
 
 	// 指定したX座標まで現在の足場上を歩いて到達できるか
 	bool IsTakeoffReachableOnCurrentPlatform(float takeoffX) const;
+
+	// 吹き飛び残像の更新
+	void UpdateBlownAwayTrail();
+
+	// 現在位置へ残像を1個追加
+	void AddBlownAwayTrail();
+
+	// 吹き飛び残像の描画
+	void DrawBlownAwayTrail();
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -556,6 +577,40 @@ private:
 	// 吹き飛び・死亡演出を地形より手前に表示する
 	// 敵半分～1体分の中間
 	static constexpr float kBlownAwayFrontOffset = kWidth * 0.75f;
+
+	/*--------------- 吹き飛び残像 ---------------*/
+	// circle.pngを使用しているモデル
+	static KamataEngine::Model* trailModel_;
+
+	// 残像の最大数
+	static constexpr size_t kTrailPointCount = 5;
+
+	// 残像データ
+	std::array<EnemyTrailPoint, kTrailPointCount> trailPoints_{};
+
+	// 次に上書きする場所
+	size_t trailWriteIndex_ = 0;
+
+	// 残像生成間隔のタイマー
+	float trailSpawnTimer_ = 0.0f;
+
+	// 残像を配置する間隔
+	static constexpr float kTrailSpawnInterval = 0.05f;
+
+	// 残像1個が消えるまでの時間
+	static constexpr float kTrailLifeTime = 0.20f;
+
+	// 最初の透明度
+	static constexpr float kTrailStartAlpha = 0.16f;
+
+	// 最初の大きさ
+	static constexpr float kTrailStartScale = 0.65f;
+
+	// 消える直前の大きさ
+	static constexpr float kTrailEndScale = 0.20f;
+
+	// 敵本体より少し奥へ配置
+	static constexpr float kTrailBackOffsetZ = 0.08f;
 
 	/*--------------- 吹っ飛び攻撃 ---------------*/
 	// 現在の飛行区間で敵へ命中できるか

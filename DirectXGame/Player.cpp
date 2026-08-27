@@ -992,20 +992,29 @@ bool Player::IsCharging() const { return behaivior_ == Behavior::kAttack && atta
 //
 float Player::GetChargeRatio() const { return std::clamp(chargeTimer_ / kChargeRequiredTime, 0.0f, 1.0f); }
 
-//
+// チャージリングの表示位置
 Vector3 Player::GetChargeEffectPosition() const {
-	float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
 
-	Vector3 position = worldTransform_.translation_;
+	// Bat.objの先端位置
+	const Vector3 localTipPosition = {
+	    0.0f,
+	    kBatTipLocalY,
+	    0.0f,
+	};
 
-	// バットの手元付近
-	position.x += direction * 0.72f;
-	position.y += 0.10f;
+	const Matrix4x4& batWorldMatrix = worldTransformAttack_.matWorld_;
 
-	// プレイヤーやバットより少し手前
-	position.z -= 0.30f;
+	// ローカル座標をバットのワールド行列で変換
+	Vector3 worldTipPosition{};
 
-	return position;
+	worldTipPosition.x = localTipPosition.x * batWorldMatrix.m[0][0] + localTipPosition.y * batWorldMatrix.m[1][0] + localTipPosition.z * batWorldMatrix.m[2][0] + batWorldMatrix.m[3][0];
+	worldTipPosition.y = localTipPosition.x * batWorldMatrix.m[0][1] + localTipPosition.y * batWorldMatrix.m[1][1] + localTipPosition.z * batWorldMatrix.m[2][1] + batWorldMatrix.m[3][1];
+	worldTipPosition.z = localTipPosition.x * batWorldMatrix.m[0][2] + localTipPosition.y * batWorldMatrix.m[1][2] + localTipPosition.z * batWorldMatrix.m[2][2] + batWorldMatrix.m[3][2];
+
+	// バットに埋もれないよう少し手前へ
+	worldTipPosition.z -= kChargeEffectFrontOffset;
+
+	return worldTipPosition;
 }
 
 // 本体のAABBを取得

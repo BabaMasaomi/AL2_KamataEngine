@@ -16,6 +16,9 @@ Enemy::~Enemy() {}
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
 
+// 残像用の3Dモデルの静的メンバ変数の実体
+Model* Enemy::trailModel_ = nullptr;
+
 namespace {
 
 float RandomFloat(float minValue, float maxValue) {
@@ -43,6 +46,25 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3 pos, bool use
 
 	// ワールドトランスフォームの初期化
 	worldTransform_.Initialize();
+
+	// 吹き飛び残像の初期化
+	for (EnemyTrailPoint& trailPoint : trailPoints_) {
+		trailPoint.worldTransform.Initialize();
+
+		trailPoint.worldTransform.scale_ = {
+		    kTrailStartScale,
+		    kTrailStartScale,
+		    1.0f,
+		};
+
+		trailPoint.lifeTimer = 0.0f;
+		trailPoint.isActive = false;
+
+		transform_.worldMatrixUpdate(trailPoint.worldTransform);
+	}
+
+	trailWriteIndex_ = 0;
+	trailSpawnTimer_ = 0.0f;
 
 	// メンバ変数への代入処理
 	// 敵の拡縮,回転,平行移動情報
@@ -189,6 +211,9 @@ void Enemy::Update() {
 
 	// ノックバック後の硬直
 	UpdateHitRecovery();
+
+	// 吹き飛び残像の生成・更新
+	UpdateBlownAwayTrail();
 
 	// 行列を定数バッファに転送
 	transform_.worldMatrixUpdate(worldTransform_);
@@ -1778,6 +1803,15 @@ void Enemy::BehaviorStunnedUpdate() {
 
 // 吹っ飛び初期化
 void Enemy::BehaviorBlownAwayInitialize() {
+	// 前回の吹き飛び残像をリセット
+	for (EnemyTrailPoint& trailPoint : trailPoints_) {
+		trailPoint.lifeTimer = 0.0f;
+		trailPoint.isActive = false;
+	}
+
+	trailWriteIndex_ = 0;
+	trailSpawnTimer_ = kTrailSpawnInterval;
+
 	blownAwayTimer_ = 0.0f;
 
 	bounceCount_ = 0;
@@ -1880,104 +1914,6 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	/*========== X方向の移動・壁判定 ==========*/
 	float nextX = worldTransform_.translation_.x + blownAwayVelocity_.x;
 
-	//if (blownAwayVelocity_.x > 0.0f) {
-	//	// 右へ移動している場合、右上と右下を確認
-	//	Vector3 rightTop = {
-	//	    nextX + halfWidth,
-	//	    worldTransform_.translation_.y + halfHeight - kBlownAwayMargin,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 rightBottom = {
-	//	    nextX + halfWidth,
-	//	    worldTransform_.translation_.y - halfHeight + kBlownAwayMargin,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 checkPositions[] = {
-	//	    rightTop,
-	//	    rightBottom,
-	//	};
-
-	//	bool hitRight = false;
-	//	float resolvedX = nextX;
-
-	//	for (const Vector3& position : checkPositions) {
-
-	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
-
-	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-	//			continue;
-	//		}
-
-	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
-
-	//		// 敵の右端が壁の左端へ合う位置
-	//		float candidateX = rect.left - halfWidth - kBlownAwayMargin;
-
-	//		resolvedX = std::min(resolvedX, candidateX);
-
-	//		hitRight = true;
-	//	}
-
-	//	if (hitRight) {
-	//		nextX = resolvedX;
-
-	//		blownAwayVelocity_.x = -blownAwayVelocity_.x;
-
-	//		hitX = true;
-	//		bouncedThisFrame = true;
-	//	}
-	//} else if (blownAwayVelocity_.x < 0.0f) {
-	//	// 左へ移動している場合、左上と左下を確認
-	//	Vector3 leftTop = {
-	//	    nextX - halfWidth,
-	//	    worldTransform_.translation_.y + halfHeight - kBlownAwayMargin,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 leftBottom = {
-	//	    nextX - halfWidth,
-	//	    worldTransform_.translation_.y - halfHeight + kBlownAwayMargin,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 checkPositions[] = {
-	//	    leftTop,
-	//	    leftBottom,
-	//	};
-
-	//	bool hitLeft = false;
-	//	float resolvedX = nextX;
-
-	//	for (const Vector3& position : checkPositions) {
-
-	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
-
-	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-	//			continue;
-	//		}
-
-	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
-
-	//		// 敵の左端が壁の右端へ合う位置
-	//		float candidateX = rect.right + halfWidth + kBlownAwayMargin;
-
-	//		resolvedX = std::max(resolvedX, candidateX);
-
-	//		hitLeft = true;
-	//	}
-
-	//	if (hitLeft) {
-	//		nextX = resolvedX;
-
-	//		blownAwayVelocity_.x = -blownAwayVelocity_.x;
-
-	//		hitX = true;
-	//		bouncedThisFrame = true;
-	//	}
-	//}
-
 	/*========== 画面左右端との反射 ==========*/
 	if (camera_) {
 		// 敵全体が画面内に収まる範囲
@@ -2017,106 +1953,6 @@ void Enemy::BehaviorBlownAwayUpdate() {
 
 	/*========== Y方向の移動・床天井判定 ==========*/
 	float nextY = worldTransform_.translation_.y + blownAwayVelocity_.y;
-
-	//bool hitFloor = false;
-
-	//if (blownAwayVelocity_.y > 0.0f) {
-	//	// 上昇中：左上と右上を確認
-	//	Vector3 leftTop = {
-	//	    worldTransform_.translation_.x - halfWidth + kBlownAwayMargin,
-	//	    nextY + halfHeight,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 rightTop = {
-	//	    worldTransform_.translation_.x + halfWidth - kBlownAwayMargin,
-	//	    nextY + halfHeight,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 checkPositions[] = {
-	//	    leftTop,
-	//	    rightTop,
-	//	};
-
-	//	bool hitCeiling = false;
-	//	float resolvedY = nextY;
-
-	//	for (const Vector3& position : checkPositions) {
-
-	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
-
-	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-	//			continue;
-	//		}
-
-	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
-
-	//		// 敵の上端を天井の下端へ合わせる
-	//		float candidateY = rect.bottom - halfHeight - kBlownAwayMargin;
-
-	//		resolvedY = std::min(resolvedY, candidateY);
-
-	//		hitCeiling = true;
-	//	}
-
-	//	if (hitCeiling) {
-	//		nextY = resolvedY;
-
-	//		blownAwayVelocity_.y = -blownAwayVelocity_.y;
-
-	//		hitY = true;
-	//		bouncedThisFrame = true;
-	//	}
-
-	//} else if (blownAwayVelocity_.y < 0.0f) {
-	//	// 落下中：左下と右下を確認
-	//	Vector3 leftBottom = {
-	//	    worldTransform_.translation_.x - halfWidth + kBlownAwayMargin,
-	//	    nextY - halfHeight,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 rightBottom = {
-	//	    worldTransform_.translation_.x + halfWidth - kBlownAwayMargin,
-	//	    nextY - halfHeight,
-	//	    0.0f,
-	//	};
-
-	//	Vector3 checkPositions[] = {
-	//	    leftBottom,
-	//	    rightBottom,
-	//	};
-
-	//	float resolvedY = nextY;
-
-	//	for (const Vector3& position : checkPositions) {
-
-	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
-
-	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-	//			continue;
-	//		}
-
-	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
-
-	//		// 敵の下端を床の上端へ合わせる
-	//		float candidateY = rect.top + halfHeight + kBlownAwayMargin;
-
-	//		resolvedY = std::max(resolvedY, candidateY);
-
-	//		hitFloor = true;
-	//	}
-
-	//	if (hitFloor) {
-	//		nextY = resolvedY;
-
-	//		blownAwayVelocity_.y = -blownAwayVelocity_.y;
-
-	//		hitY = true;
-	//		bouncedThisFrame = true;
-	//	}
-	//}
 
 	/*========== 画面上下端との反射 ==========*/
 	if (camera_) {
@@ -2299,6 +2135,9 @@ void Enemy::UpdateHitKnockBack() {
 
 // 敵の描画
 void Enemy::Draw() {
+	// 敵本体より先に残像を描く
+	DrawBlownAwayTrail();
+
 	// 敵を描画
 	modelEnemy_->Draw(worldTransform_, *camera_);
 }
@@ -2554,6 +2393,7 @@ void Enemy::OnCollisionBlownAwayEnemy(float attackDirection) {
 	}
 }
 
+// 吹き飛び中の敵の進行方向を取得
 float Enemy::GetBlownAwayDirectionX() const {
 	if (blownAwayVelocity_.x > 0.0f) {
 		return 1.0f;
@@ -2564,6 +2404,105 @@ float Enemy::GetBlownAwayDirectionX() const {
 	}
 
 	return blownAwayDirection_;
+}
+
+// 
+void Enemy::AddBlownAwayTrail() {
+	EnemyTrailPoint& trailPoint = trailPoints_[trailWriteIndex_];
+
+	trailPoint.worldTransform.translation_ = worldTransform_.translation_;
+
+	// 敵本体を隠さないよう少し奥へ配置
+	trailPoint.worldTransform.translation_.z += kTrailBackOffsetZ;
+
+	trailPoint.worldTransform.rotation_ = {
+	    0.0f,
+	    0.0f,
+	    0.0f,
+	};
+
+	trailPoint.worldTransform.scale_ = {
+	    kTrailStartScale,
+	    kTrailStartScale,
+	    1.0f,
+	};
+
+	trailPoint.lifeTimer = kTrailLifeTime;
+	trailPoint.isActive = true;
+
+	transform_.worldMatrixUpdate(trailPoint.worldTransform);
+
+	trailWriteIndex_ = (trailWriteIndex_ + 1) % kTrailPointCount;
+}
+
+// 吹き飛び中の残像を更新
+void Enemy::UpdateBlownAwayTrail() {
+	const float deltaTime = 1.0f / 60.0f;
+
+	/*========== 新しい残像を追加 ==========*/
+
+	if (behavior_ == BehaviorEnemy::kBlownAway && !isBlownAwayStopped_) {
+
+		trailSpawnTimer_ += deltaTime;
+
+		if (trailSpawnTimer_ >= kTrailSpawnInterval) {
+			trailSpawnTimer_ = 0.0f;
+			AddBlownAwayTrail();
+		}
+	}
+
+	/*========== 既存の残像を消す ==========*/
+
+	for (EnemyTrailPoint& trailPoint : trailPoints_) {
+		if (!trailPoint.isActive) {
+			continue;
+		}
+
+		trailPoint.lifeTimer -= deltaTime;
+
+		float lifeRatio = std::clamp(trailPoint.lifeTimer / kTrailLifeTime, 0.0f, 1.0f);
+
+		float scale = kTrailEndScale + (kTrailStartScale - kTrailEndScale) * lifeRatio;
+
+		trailPoint.worldTransform.scale_ = {
+		    scale,
+		    scale,
+		    1.0f,
+		};
+
+		if (trailPoint.lifeTimer <= 0.0f) {
+			trailPoint.lifeTimer = 0.0f;
+			trailPoint.isActive = false;
+			continue;
+		}
+
+		transform_.worldMatrixUpdate(trailPoint.worldTransform);
+	}
+}
+
+// 吹き飛び中の残像を描画
+void Enemy::DrawBlownAwayTrail() {
+	if (!trailModel_ || !camera_) {
+		return;
+	}
+
+	for (const EnemyTrailPoint& trailPoint : trailPoints_) {
+		if (!trailPoint.isActive) {
+			continue;
+		}
+
+		float lifeRatio = std::clamp(trailPoint.lifeTimer / kTrailLifeTime, 0.0f, 1.0f);
+
+		// 古い円ほど薄くする
+		float alpha = kTrailStartAlpha * lifeRatio * lifeRatio;
+
+		trailModel_->SetAlpha(alpha);
+
+		trailModel_->Draw(trailPoint.worldTransform, *camera_);
+	}
+
+	// 共有モデルなので描画後に透明度を戻す
+	trailModel_->SetAlpha(1.0f);
 }
 
 // HPダメージを受ける

@@ -197,6 +197,9 @@ void GameScene::Initialize(bool skipTutorial) {
 	hitEffectModel_ = Model::CreateFromOBJ("particle", true);
 	guardEffectModel_ = Model::CreateFromOBJ("ring", true);
 
+	// circle.pngを使用するparticleモデルを残像にも共有
+	Enemy::SetTrailModel(hitEffectModel_);
+
 	HitEffect::SetHitModel(hitEffectModel_);
 	HitEffect::SetGuardModel(guardEffectModel_);
 	HitEffect::SetCamera(&camera_);

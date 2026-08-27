@@ -34,6 +34,10 @@ void ChargeEffect::Initialize(Model* model, Camera* camera) {
 	};
 
 	alpha_ = 0.0f;
+	fadeStartAlpha_ = 0.0f;
+
+	fadeStartScale_ = kEndScale;
+
 	isVisible_ = false;
 	wasCharging_ = false;
 	pulseTimer_ = 0.0f;
@@ -56,7 +60,10 @@ void ChargeEffect::Update(bool isCharging, bool isChargeReady, float chargeRatio
 			isVisible_ = true;
 			pulseTimer_ = 0.0f;
 			fadeTimer_ = 0.0f;
-			alpha_ = 0.85f;
+
+			// 押した瞬間は見えないようにする
+			alpha_ = 0.0f;
+			fadeStartAlpha_ = 0.0f;
 		}
 
 		chargeRatio = std::clamp(chargeRatio, 0.0f, 1.0f);
@@ -81,8 +88,21 @@ void ChargeEffect::Update(bool isCharging, bool isChargeReady, float chargeRatio
 
 			pulseTimer_ = 0.0f;
 
-			// 収束に合わせて少し濃くする
-			alpha_ = 0.55f + chargeRatio * 0.30f;
+			if (chargeRatio < kVisibleStartRatio) {
+
+				// 通常攻撃の短押し中は表示しない
+				alpha_ = 0.0f;
+
+			} else {
+
+				// 表示開始地点を0、溜め成立地点を1に変換
+				float visibleRatio = (chargeRatio - kVisibleStartRatio) / (1.0f - kVisibleStartRatio);
+
+				visibleRatio = std::clamp(visibleRatio, 0.0f, 1.0f);
+
+				// 最初は薄く、溜め成立へ近づくほど濃くする
+				alpha_ = kStartAlpha + (kReadyAlpha - kStartAlpha) * EaseOutCubic(visibleRatio);
+			}
 		}
 
 		worldTransform_.scale_ = {
@@ -93,7 +113,9 @@ void ChargeEffect::Update(bool isCharging, bool isChargeReady, float chargeRatio
 
 	} else if (wasCharging_) {
 
-		// 攻撃へ移った瞬間からフェード開始
+		// 現在の薄さを維持したままフェードを開始
+		fadeStartAlpha_ = alpha_;
+		fadeStartScale_ = worldTransform_.scale_.x;
 		fadeTimer_ = kFadeOutTime;
 
 	} else if (isVisible_) {
@@ -102,10 +124,10 @@ void ChargeEffect::Update(bool isCharging, bool isChargeReady, float chargeRatio
 
 		float fadeRatio = std::clamp(fadeTimer_ / kFadeOutTime, 0.0f, 1.0f);
 
-		alpha_ = fadeRatio;
+		alpha_ = fadeStartAlpha_ * fadeRatio;
 
 		// 消えながら少し広げる
-		float fadeScale = kEndScale + (1.0f - fadeRatio) * 0.35f;
+		float fadeScale = fadeStartScale_ + (1.0f - fadeRatio) * 0.20f;
 
 		worldTransform_.scale_ = {
 		    fadeScale,

@@ -37,11 +37,27 @@ private:
 	// 透明度
 	float alpha_ = 0.0f;
 
+	// フェード開始時の透明度
+	float fadeStartAlpha_ = 0.0f;
+
+	// フェード開始時の大きさ
+	float fadeStartScale_ = kEndScale;
+
+	// 通常攻撃の短押しで目立たないよう、
+	// この進行率までは表示しない
+	static constexpr float kVisibleStartRatio = 0.28f;
+
+	// 表示開始直後の透明度
+	static constexpr float kStartAlpha = 0.08f;
+
+	// 溜め成立直前の透明度
+	static constexpr float kReadyAlpha = 0.85f;
+
 	// 収束前の大きさ
-	static constexpr float kStartScale = 5.0f;
+	static constexpr float kStartScale = 7.0f;
 
 	// 収束後の大きさ
-	static constexpr float kEndScale = 1.15f;
+	static constexpr float kEndScale = 1.5f;
 
 	// フェードアウト時間
 	static constexpr float kFadeOutTime = 0.10f;
