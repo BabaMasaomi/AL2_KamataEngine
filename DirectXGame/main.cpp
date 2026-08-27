@@ -111,6 +111,13 @@ void ChangeScene() {
 	case Scene::kTitle:
 		// タイトルシーンが終了したら
 		if (titleScene->GetIsFinished()) {
+			TitleScene::Action action = titleScene->GetAction();
+
+			if (action == TitleScene::Action::kQuit) {
+				PostQuitMessage(0);
+				break;
+			}
+
 			// シーン変更
 			scene = Scene::kGame;
 			// 旧シーンの解放
@@ -145,13 +152,20 @@ void ChangeScene() {
 
 	case Scene::kResult:
 		if (resultScene->GetIsFinished()) {
+			ResultScene::Action action = resultScene->GetAction();
+
 			delete resultScene;
 			resultScene = nullptr;
 
-			titleScene = new TitleScene();
-			titleScene->Initialize();
-
-			scene = Scene::kTitle;
+			if (action == ResultScene::Action::kRetry) {
+				gameScene = new GameScene();
+				gameScene->Initialize(true);
+				scene = Scene::kGame;
+			} else {
+				titleScene = new TitleScene();
+				titleScene->Initialize();
+				scene = Scene::kTitle;
+			}
 		}
 		break;
 
@@ -193,14 +207,13 @@ void DrawScene() {
 	case Scene::kGame:
 		// ゲームシーンの描画
 		gameScene->Draw();
+		break;
 
 	case Scene::kResult:
 		// リザルトシーンの描画
 		if (resultScene) {
 			resultScene->Draw();
 		}
-		break;
-
 		break;
 	default:
 		break;

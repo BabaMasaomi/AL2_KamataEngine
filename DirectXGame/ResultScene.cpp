@@ -30,6 +30,11 @@ ResultScene::~ResultScene() {
 
 	scoreDigitSprites_.clear();
 
+	for (Sprite*& sprite : menuSprites_) {
+		delete sprite;
+		sprite = nullptr;
+	}
+
 	/*========== フェード ==========*/
 
 	delete fade_;
@@ -42,6 +47,8 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 	score_ = score;
 
 	finished_ = false;
+	action_ = Action::kNone;
+	selectedMenuIndex_ = 0;
 	phase_ = Phase::kFadeIn;
 
 	uint32_t textureHandle = TextureManager::Load("white1x1.png");
@@ -83,6 +90,7 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 
 	/*========== スコア表示 ==========*/
 	InitializeScoreDisplay();
+	InitializeMenu();
 
 	fade_ = new Fade();
 	fade_->Initialize();
@@ -99,11 +107,14 @@ void ResultScene::Update() {
 		break;
 
 	case Phase::kMain:
-		// 仮操作：Spaceでタイトルへ戻る
-		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+		if (Input::GetInstance()->TriggerKey(DIK_UP) || Input::GetInstance()->TriggerKey(DIK_DOWN)) {
+			selectedMenuIndex_ = 1 - selectedMenuIndex_;
+			UpdateMenuAppearance();
+		}
 
+		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+			action_ = (selectedMenuIndex_ == 0) ? Action::kReturnToTitle : Action::kRetry;
 			fade_->Start(Fade::Status::FadeOut, 0.75f);
-
 			phase_ = Phase::kFadeOut;
 		}
 		break;
@@ -137,6 +148,7 @@ void ResultScene::Draw() {
 	/*========== 最終スコア ==========*/
 
 	DrawScore();
+	DrawMenu();
 
 	Sprite::PostDraw();
 
@@ -282,6 +294,40 @@ void ResultScene::DrawScore() {
 
 		if (scoreDigitSprites_[i]) {
 			scoreDigitSprites_[i]->Draw();
+		}
+	}
+}
+
+void ResultScene::InitializeMenu() {
+	const std::array<const char*, 2> textureNames = {
+	    "return_to_title.png",
+	    "retry.png",
+	};
+
+	for (size_t i = 0; i < menuSprites_.size(); ++i) {
+		uint32_t texture = TextureManager::Load(textureNames[i]);
+		menuSprites_[i] = Sprite::Create(texture, {kMenuX, kMenuStartY + static_cast<float>(i) * kMenuSpacingY});
+		menuSprites_[i]->SetAnchorPoint({0.5f, 0.5f});
+		menuSprites_[i]->SetSize({kMenuWidth, kMenuHeight});
+	}
+
+	UpdateMenuAppearance();
+}
+
+void ResultScene::UpdateMenuAppearance() {
+	for (size_t i = 0; i < menuSprites_.size(); ++i) {
+		if (!menuSprites_[i]) {
+			continue;
+		}
+		float alpha = (i == selectedMenuIndex_) ? kSelectedAlpha : kUnselectedAlpha;
+		menuSprites_[i]->SetColor({1.0f, 1.0f, 1.0f, alpha});
+	}
+}
+
+void ResultScene::DrawMenu() {
+	for (Sprite* sprite : menuSprites_) {
+		if (sprite) {
+			sprite->Draw();
 		}
 	}
 }

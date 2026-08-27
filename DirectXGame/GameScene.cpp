@@ -91,7 +91,7 @@ GameScene::~GameScene() {
 * メンバ関数
 ==============================================================*/
 /*-------------------- 初期化 --------------------*/
-void GameScene::Initialize() {
+void GameScene::Initialize(bool skipTutorial) {
 	// メンバ変数への代入処理
 	// フェーズをフェードインから開始
 	phase_ = Phase::kFadeIn;
@@ -138,8 +138,15 @@ void GameScene::Initialize() {
 	// 背景用の敵を生成
 	InitializeBackgroundEnemies();
 
-	// チュートリアル用に1体だけ生成
-	InitializeTutorial();
+	if (skipTutorial) {
+		// リトライ時は練習用の敵を生成しない
+		tutorialLauncherEnemy_ = nullptr;
+		tutorialTargetEnemy_ = nullptr;
+		tutorialState_ = TutorialState::kFinished;
+		isMainGameStarted_ = false;
+	} else {
+		InitializeTutorial();
+	}
 
 	isReinforcementUnlocked_ = false;
 	playTimer_ = 0.0f;
@@ -225,6 +232,11 @@ void GameScene::Initialize() {
 	fade_ = new Fade();
 	fade_->Initialize();
 	fade_->Start(Fade::Status::FadeIn, 1.0f);
+
+	// リトライ時はフェードイン後、チュートリアルを挟まず3カウントへ進む
+	if (skipTutorial) {
+		StartCountdown();
+	}
 }
 
 /*-------------------- 更新 --------------------*/

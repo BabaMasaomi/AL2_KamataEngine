@@ -8,6 +8,12 @@
 
 class ResultScene {
 public:
+	enum class Action {
+		kNone,
+		kReturnToTitle,
+		kRetry,
+	};
+
 	ResultScene();
 	~ResultScene();
 
@@ -16,6 +22,7 @@ public:
 	void Draw();
 
 	bool GetIsFinished() const { return finished_; }
+	Action GetAction() const { return action_; }
 
 private:
 	enum class Phase {
@@ -29,6 +36,22 @@ private:
 	GameResult result_ = GameResult::kNone;
 
 	bool finished_ = false;
+	Action action_ = Action::kNone;
+
+	/*-------------------- リザルトメニュー --------------------*/
+	std::array<KamataEngine::Sprite*, 2> menuSprites_{};
+	size_t selectedMenuIndex_ = 0;
+	static constexpr float kMenuX = 260.0f;
+	static constexpr float kMenuStartY = 430.0f;
+	static constexpr float kMenuSpacingY = 95.0f;
+	static constexpr float kMenuWidth = 300.0f;
+	static constexpr float kMenuHeight = 100.0f;
+	static constexpr float kSelectedAlpha = 1.0f;
+	static constexpr float kUnselectedAlpha = 0.35f;
+
+	void InitializeMenu();
+	void UpdateMenuAppearance();
+	void DrawMenu();
 
 	KamataEngine::Sprite* backgroundSprite_ = nullptr;
 

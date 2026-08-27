@@ -418,7 +418,7 @@ public:
 
 	/*-------------------- メンバ関数 --------------------*/
 	// 初期化
-	void Initialize();
+	void Initialize(bool skipTutorial = false);
 
 	// 更新
 	void Update();
