@@ -22,13 +22,29 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 	// 初期状態
 	expandTimer_ = 0.0f;
 	fadeTimer_ = 0.0f;
-	alpha_ = 1.0f;
+
+	// エフェクトの種類によって透明度を変える
+	switch (effectType_) {
+	case HitEffectType::kNormalHit:
+		startAlpha_ = kNormalHitAlpha;
+		break;
+
+	case HitEffectType::kChargedHit:
+		startAlpha_ = kChargedHitAlpha;
+		break;
+
+	default:
+		startAlpha_ = 1.0f;
+		break;
+	}
+
+	alpha_ = startAlpha_;
 	isDead_ = false;
 
 	circleWorldTransform_.Initialize();
 	circleWorldTransform_.translation_ = pos;
 
-	// 溜め攻撃は最初から最大サイズ	
+	// スケール分岐
 	if (effectType_ == HitEffectType::kChargedHit) {
 
 		circleWorldTransform_.scale_ = {
@@ -37,13 +53,24 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 		    kChargedHitInitialScale,
 		};
 
-		// 拡大フェーズを省略してフェードから開始
+		// ヒットストップ前に最大表示させるため、
+		// 拡大を省略してフェードから開始
 		behavior_ = HitEffectBehavior::kFadeOut;
 		behaviorRequest_ = HitEffectBehavior::kFadeOut;
 
+	} else if (effectType_ == HitEffectType::kNormalHit) {
+
+		circleWorldTransform_.scale_ = {
+		    kNormalHitInitialScale,
+		    kNormalHitInitialScale,
+		    kNormalHitInitialScale,
+		};
+
+		behavior_ = HitEffectBehavior::kExpand;
+		behaviorRequest_ = HitEffectBehavior::kExpand;
+
 	} else if (effectType_ == HitEffectType::kBounceWall) {
 
-		// 左右端に当たったときは縦長
 		circleWorldTransform_.scale_ = {
 		    kBounceWallStartScaleX,
 		    kBounceWallStartScaleY,
@@ -55,7 +82,6 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 
 	} else if (effectType_ == HitEffectType::kBounceHorizontal) {
 
-		// 上下端に当たったときは横長
 		circleWorldTransform_.scale_ = {
 		    kBounceHorizontalStartScaleX,
 		    kBounceHorizontalStartScaleY,
@@ -67,7 +93,12 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 
 	} else {
 
-		circleWorldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
+		// 既存の汎用ヒット・ガード
+		circleWorldTransform_.scale_ = {
+		    2.0f,
+		    2.0f,
+		    2.0f,
+		};
 
 		behavior_ = HitEffectBehavior::kExpand;
 		behaviorRequest_ = HitEffectBehavior::kExpand;
@@ -82,11 +113,27 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 
 		if (effectType_ == HitEffectType::kChargedHit) {
 
-			// 溜め攻撃は放射状部分も少し大きくする
-			worldTransform.scale_ = {5.5f, 0.45f, 2.0f};
+			worldTransform.scale_ = {
+			    kChargedHitLineLength,
+			    kChargedHitLineWidth,
+			    2.0f,
+			};
+
+		} else if (effectType_ == HitEffectType::kNormalHit) {
+
+			worldTransform.scale_ = {
+			    kNormalHitLineLength,
+			    kNormalHitLineWidth,
+			    1.0f,
+			};
 
 		} else {
-			worldTransform.scale_ = {4.0f, 0.3f, 2.0f};
+
+			worldTransform.scale_ = {
+			    4.0f,
+			    0.3f,
+			    2.0f,
+			};
 		}
 
 		float ellipseRotate = rotationDistribution(randomEngine);
@@ -161,8 +208,14 @@ void HitEffect::BehaviorExpandUpdate() {
 
 	float expandTime = 0.1f;
 
-	if (effectType_ == HitEffectType::kGuard) {
+	if (effectType_ == HitEffectType::kNormalHit) {
+
+		expandTime = kNormalHitExpandTime;
+
+	} else if (effectType_ == HitEffectType::kGuard) {
+
 		expandTime = 0.04f;
+
 	} else if (effectType_ == HitEffectType::kBounceWall || effectType_ == HitEffectType::kBounceHorizontal) {
 
 		expandTime = kBounceExpandTime;
@@ -172,10 +225,25 @@ void HitEffect::BehaviorExpandUpdate() {
 
 	float t = std::clamp(expandTimer_ / expandTime, 0.0f, 1.0f);
 
-	if (effectType_ == HitEffectType::kHit) {
+	if (effectType_ == HitEffectType::kNormalHit) {
+
+		float scale = EaseOut(kNormalHitInitialScale, kNormalHitEndScale, t);
+
+		circleWorldTransform_.scale_ = {
+		    scale,
+		    scale,
+		    scale,
+		};
+
+	} else if (effectType_ == HitEffectType::kHit) {
 
 		float scale = EaseOut(2.0f, 3.5f, t);
-		circleWorldTransform_.scale_ = {scale, scale, scale};
+
+		circleWorldTransform_.scale_ = {
+		    scale,
+		    scale,
+		    scale,
+		};
 
 	} else if (effectType_ == HitEffectType::kBounceWall) {
 
@@ -205,7 +273,7 @@ void HitEffect::BehaviorExpandUpdate() {
 // エフェクトフェードアウトの初期化
 void HitEffect::BehaviorFadeOutInitialize() {
 	fadeTimer_ = 0.0f;
-	alpha_ = 1.0f;
+	alpha_ = startAlpha_;
 }
 
 // エフェクトフェードアウトの更新
@@ -215,6 +283,10 @@ void HitEffect::BehaviorFadeOutUpdate() {
 	if (effectType_ == HitEffectType::kChargedHit) {
 
 		fadeTime = kChargedHitFadeTime;
+
+	} else if (effectType_ == HitEffectType::kNormalHit) {
+
+		fadeTime = kNormalHitFadeTime;
 
 	} else if (effectType_ == HitEffectType::kHit) {
 
@@ -234,7 +306,7 @@ void HitEffect::BehaviorFadeOutUpdate() {
 	float t = std::clamp(fadeTimer_ / fadeTime, 0.0f, 1.0f);
 
 	// 徐々に透明にする
-	alpha_ = EaseIn(1.0f, 0.0f, t);
+	alpha_ = EaseIn(startAlpha_, 0.0f, t);
 
 	// 溜め攻撃は消えながら少しだけ広がる
 	if (effectType_ == HitEffectType::kChargedHit) {
@@ -271,11 +343,12 @@ void HitEffect::BehaviorFadeOutUpdate() {
 /// </summary>
 void HitEffect::Draw() {
 	// 溜め攻撃も通常ヒットと同じモデルを使う
-	if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kChargedHit) {
+	if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kNormalHit || effectType_ == HitEffectType::kChargedHit) {
 
 		model_ = hitModel_;
 
 	} else {
+
 		model_ = guardModel_;
 	}
 
@@ -284,7 +357,12 @@ void HitEffect::Draw() {
 
 	model_->Draw(circleWorldTransform_, *camera_);
 
-	if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kChargedHit) {
+	if (effectType_ == HitEffectType::kNormalHit) {
+
+		// 通常攻撃は控えめに1本だけ
+		model_->Draw(ellipseWorldTransform_[0], *camera_);
+
+	} else if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kChargedHit) {
 
 		for (WorldTransform& worldTransform : ellipseWorldTransform_) {
 

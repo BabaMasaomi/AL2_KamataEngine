@@ -4,7 +4,8 @@
 
 // エフェクトの種類
 enum class HitEffectType {
-	kHit,
+	kHit,        // 汎用・敵同士の衝突・死亡演出
+	kNormalHit,  // プレイヤーの通常攻撃
 	kChargedHit, // 溜め攻撃用
 	kGuard,
 
@@ -70,19 +71,48 @@ private:
 	static constexpr float kFadeTime_ = 0.3f;
 	// 透明度
 	float alpha_ = 1.0f;
+	// エフェクトごとのフェード開始透明度
+	float startAlpha_ = 1.0f;
 
 	// 消失フラグ
 	bool isDead_ = false;
 
-	/*--------------- 溜め攻撃用 ---------------*/
-	// 溜め攻撃エフェクトの初期サイズ
-	static constexpr float kChargedHitInitialScale = 3.5f;
+	/*--------------- 通常攻撃命中用 ---------------*/
+	// 円の初期サイズ
+	static constexpr float kNormalHitInitialScale = 1.25f;
 
-	// 消える直前のサイズ
-	static constexpr float kChargedHitEndScale = 4.3f;
+	// 円の最大サイズ
+	static constexpr float kNormalHitEndScale = 2.20f;
+
+	// 拡大時間
+	static constexpr float kNormalHitExpandTime = 0.06f;
 
 	// フェード時間
-	static constexpr float kChargedHitFadeTime = 0.22f;
+	static constexpr float kNormalHitFadeTime = 0.14f;
+
+	// 最大透明度
+	static constexpr float kNormalHitAlpha = 0.55f;
+
+	// 放射線の長さと太さ
+	static constexpr float kNormalHitLineLength = 2.40f;
+	static constexpr float kNormalHitLineWidth = 0.16f;
+
+	/*--------------- 溜め攻撃用 ---------------*/
+	// ヒットストップ開始時点のサイズ
+	static constexpr float kChargedHitInitialScale = 5.0f;
+
+	// 消える直前のサイズ
+	static constexpr float kChargedHitEndScale = 7.0f;
+
+	// フェード時間
+	static constexpr float kChargedHitFadeTime = 0.26f;
+
+	// 最大透明度
+	static constexpr float kChargedHitAlpha = 1.0f;
+
+	// 放射線の長さと太さ
+	static constexpr float kChargedHitLineLength = 8.0f;
+	static constexpr float kChargedHitLineWidth = 0.65f;
 
 	/*--------------- 跳ね返りエフェクト用 ---------------*/
 	// 拡大時間

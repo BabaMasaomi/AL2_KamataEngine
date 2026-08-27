@@ -2291,7 +2291,10 @@ bool Enemy::OnCollisionPlayer(Player* player) {
 	/*========== ヒットエフェクト ==========*/
 
 	if (gameScene_) {
-		gameScene_->CreateHitEffect(effectPos, HitEffectType::kHit);
+
+		HitEffectType hitEffectType = attackType == AttackType::kNormal ? HitEffectType::kNormalHit : HitEffectType::kHit;
+
+		gameScene_->CreateHitEffect(effectPos, hitEffectType);
 	}
 
 	return true;

@@ -296,7 +296,7 @@ private:
 	KamataEngine::Vector3 velocity_ = {};
 
 	// 基礎移動速度
-	static inline const float kMoveSpeed = 0.04f;
+	static inline const float kMoveSpeed = 0.035f;
 
 	// 敵の当たり判定サイズ
 	static constexpr float kWidth = 1.6f;
