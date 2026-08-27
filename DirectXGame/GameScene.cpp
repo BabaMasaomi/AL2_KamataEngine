@@ -83,6 +83,10 @@ GameScene::~GameScene() {
 	delete timeIconSprite_;
 	timeIconSprite_ = nullptr;
 
+	// ゲーム終了時のスプライトを解放
+	delete gameFinishSprite_;
+	gameFinishSprite_ = nullptr;
+
 	timeDigitSprites_.fill(nullptr);
 	delete fade_; // フェードの解放
 }
@@ -123,7 +127,16 @@ void GameScene::Initialize(bool skipTutorial) {
 	player_ = new Player();
 
 	// 座標をマップチップ番号で指定
-	Vector3 playerPos = mapChipField_->GetMapChipPositionByIndex(13, 17);
+	Vector3 playerPos;
+
+	if (skipTutorial) {
+		// リスタート時：ステージ中央の地面
+		playerPos = mapChipField_->GetMapChipPositionByIndex(30, 17);
+
+	} else {
+		// 通常開始時：チュートリアル用の左端
+		playerPos = mapChipField_->GetMapChipPositionByIndex(2, 17);
+	}
 
 	// プレイヤーの初期化
 	player_->Initialize(model_, modelAttack_, &camera_, playerPos);
@@ -213,6 +226,7 @@ void GameScene::Initialize(bool skipTutorial) {
 	finished_ = false;
 	gameResult_ = GameResult::kNone;
 
+	/*--------------- UI類 ---------------*/
 	// カウントダウンの初期化
 	InitializeCountdown();
 
@@ -227,6 +241,23 @@ void GameScene::Initialize(bool skipTutorial) {
 
 	// チュートリアルガイドの初期化
 	InitializeTutorialGuides();
+
+	/*--------------- 終了演出 ---------------*/
+	uint32_t gameFinishTexture = TextureManager::Load("GameFinish.png");
+
+	gameFinishSprite_ = Sprite::Create(gameFinishTexture, {640.0f, 360.0f});
+
+	gameFinishSprite_->SetAnchorPoint({
+	    0.5f,
+	    0.5f,
+	});
+
+	gameFinishSprite_->SetSize({
+	    kGameFinishWidth,
+	    kGameFinishHeight,
+	});
+
+	gameFinishTimer_ = 0.0f;
 
 	/*--------------- フェード ---------------*/
 	fade_ = new Fade();
@@ -567,6 +598,11 @@ void GameScene::Update() {
 
 		break;
 
+	case GameScene::Phase::kFinish:
+		// 終了表示中はプレイヤーと敵を停止
+		gameFinishTimer_ += deltaTime;
+		break;
+
 	case ::GameScene::Phase::kFadeOut:
 		fade_->Update();
 		break;
@@ -657,6 +693,11 @@ void GameScene::Draw() {
 	// 開始カウントダウン
 	if (isCountdownActive_ && countdownSprite_) {
 		countdownSprite_->Draw();
+	}
+
+	if ((phase_ == Phase::kFinish || phase_ == Phase::kFadeOut) && gameFinishSprite_) {
+
+		gameFinishSprite_->Draw();
 	}
 
 	Sprite::PostDraw();
@@ -1024,7 +1065,7 @@ void GameScene::CheckEnemyCollisions() {
 			continue;
 		}
 
-		AABB attackerAABB = attacker->GetAABB();
+		AABB attackerAABB = attacker->GetBlownAwayAttackAABB();
 
 		for (Enemy* target : enemies_) {
 			// 自分自身は除外
@@ -1538,12 +1579,10 @@ void GameScene::ChangePhase() {
 			player_->StartDeathAnimation();
 
 		} else if (playTimer_ >= kClearTime) {
-			// 30秒生存したらクリア
 			gameResult_ = GameResult::kClear;
 
-			phase_ = GameScene::Phase::kFadeOut;
-
-			fade_->Start(Fade::Status::FadeOut, 0.75f);
+			gameFinishTimer_ = 0.0f;
+			phase_ = GameScene::Phase::kFinish;
 		}
 
 		break;
@@ -1551,9 +1590,15 @@ void GameScene::ChangePhase() {
 	case GameScene::Phase::kDeath:
 		if (player_->IsDeathAnimationFinished() && hasCreatedPlayerDeathEffect_ && playerDeathEffectTimer_ <= 0.0f) {
 
-			phase_ = GameScene::Phase::kFadeOut;
+			gameFinishTimer_ = 0.0f;
+			phase_ = GameScene::Phase::kFinish;
+		}
+		break;
 
-			fade_->Start(Fade::Status::FadeOut, 0.5f);
+	case GameScene::Phase::kFinish:
+		if (gameFinishTimer_ >= kGameFinishDisplayTime) {
+			phase_ = GameScene::Phase::kFadeOut;
+			fade_->Start(Fade::Status::FadeOut, 0.75f);
 		}
 		break;
 
@@ -1897,7 +1942,7 @@ void GameScene::UpdateScoreDisplay() {
 		});
 	}
 
-	//if (scoreIconSprite_ && scoreDigitCount_ > 0) {
+	// if (scoreIconSprite_ && scoreDigitCount_ > 0) {
 
 	//	// 一番左の数字の中心位置
 	//	float leftmostDigitX = kScoreRightX - static_cast<float>(scoreDigitCount_ - 1) * kScoreDigitSpacing;

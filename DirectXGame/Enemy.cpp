@@ -2312,6 +2312,31 @@ AABB Enemy::GetAABB() {
 	return aabb;
 }
 
+// 
+AABB Enemy::GetBlownAwayAttackAABB() {
+	Vector3 worldPos = GetWorldPos();
+
+	const float halfWidth = kWidth * 0.5f + kBlownAwayAttackMarginX;
+
+	const float halfHeight = kHeight * 0.5f + kBlownAwayAttackMarginY;
+
+	AABB attackAABB;
+
+	attackAABB.min = {
+	    worldPos.x - halfWidth,
+	    worldPos.y - halfHeight,
+	    worldPos.z - halfWidth,
+	};
+
+	attackAABB.max = {
+	    worldPos.x + halfWidth,
+	    worldPos.y + halfHeight,
+	    worldPos.z + halfWidth,
+	};
+
+	return attackAABB;
+}
+
 bool Enemy::OnCollisionPlayer(Player* player) {
 	if (behavior_ == BehaviorEnemy::kDeath || behavior_ == BehaviorEnemy::kBlownAway) {
 		return false;
@@ -2465,6 +2490,7 @@ void Enemy::StartBlownAway(float direction) {
 
 	KamataEngine::DebugText::GetInstance()->ConsolePrintf("StartBlownAway: direction=%f velocity=(%f, %f)\n", blownAwayDirection_, blownAwayVelocity_.x, blownAwayVelocity_.y);
 }
+
 
 // 吹き飛び中で、他の敵へ攻撃できるか
 bool Enemy::CanHitOtherEnemy() const { return behavior_ == BehaviorEnemy::kBlownAway && !isBlownAwayStopped_ && canHitEnemyInCurrentBounce_; }

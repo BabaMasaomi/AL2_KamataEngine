@@ -31,7 +31,6 @@ enum class EnemyPurpose {
 	kTutorialTarget,   // 飛んできた敵を当てる標的
 };
 
-
 // 追跡ジャンプの状態
 enum class ChaseJumpState {
 	kDirectChase,    // 通常追跡
@@ -112,6 +111,9 @@ public:
 	/// <returns></returns>
 	AABB GetAABB();
 
+	// 吹き飛び中に他の敵へ攻撃するためのAABB
+	AABB GetBlownAwayAttackAABB();
+
 	/// <summary>
 	/// 敵の衝突判定処理
 	/// </summary>
@@ -122,7 +124,7 @@ public:
 	bool IsCollisionDisEnabled() const;
 
 	// プレイヤーに接触ダメージを与えられるか
-	bool CanDamagePlayer() const;	
+	bool CanDamagePlayer() const;
 
 	// スタン衝撃による弱いノックバックを受けられるか
 	bool CanReceiveStunShockwave() const { return behavior_ == BehaviorEnemy::kRoot && !isHitKnockBack_ && !isHitRecovery_ && !isDead_; }
@@ -178,7 +180,7 @@ public:
 	bool IsTutorialEnemy() const { return purpose_ != EnemyPurpose::kNormal; }
 
 	// 通常攻撃などによる小ノックバック中か
-	bool IsHitKnockBack() const { return isHitKnockBack_; }	
+	bool IsHitKnockBack() const { return isHitKnockBack_; }
 
 	// ゲッター
 	bool GetIsDead() const { return isDead_; }
@@ -251,7 +253,7 @@ private:
 	bool HasFloorAhead(float direction) const;
 
 	// 指定したX座標まで現在の足場上を歩いて到達できるか
-	bool IsTakeoffReachableOnCurrentPlatform(float takeoffX) const;	
+	bool IsTakeoffReachableOnCurrentPlatform(float takeoffX) const;
 
 	// Translateクラス内の関数を使える様にする
 	Transform transform_;
@@ -558,6 +560,10 @@ private:
 	// 吹き飛び敵が与えるスタン値
 	static constexpr int32_t kBlownAwayHitStunDamage = 1;
 
+	// 吹き飛び攻撃判定の拡大量
+	static constexpr float kBlownAwayAttackMarginX = 0.8f;
+	static constexpr float kBlownAwayAttackMarginY = 0.6f;
+
 	/*--------------- 地形反射 ---------------*/
 	// 反射回数
 	int32_t bounceCount_ = 0;
@@ -573,7 +579,7 @@ private:
 	bool isDead_ = false;
 
 	// 死亡アクション時間管理
-	//float deathTimer_ = 0.0f;
+	// float deathTimer_ = 0.0f;
 	static constexpr float kDeathTime = 1.0f;
 
 	bool isCollisionDisenabled_ = false;

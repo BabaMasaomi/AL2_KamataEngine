@@ -69,7 +69,7 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 	backgroundSprite_->SetSize({1280.0f, 720.0f});
 
 	/*========== Game Finish画像 ==========*/
-	uint32_t gameFinishTexture = TextureManager::Load("GameFinish.png");
+	uint32_t gameFinishTexture = TextureManager::Load("ResultBig_bat.png");
 
 	gameFinishSprite_ = Sprite::Create(
 	    gameFinishTexture, {
@@ -84,8 +84,8 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 	});
 
 	gameFinishSprite_->SetSize({
-	    750.0f,
-	    300.0f,
+	    600.0f,
+	    200.0f,
 	});
 
 	/*========== スコア表示 ==========*/

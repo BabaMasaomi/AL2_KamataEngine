@@ -22,6 +22,7 @@ private:
 		kFadeIn,  // フェードイン
 		kPlay,    // プレイ中
 		kDeath,   // 死亡
+		kFinish,  // GameFinish表示
 		kFadeOut, // フェードアウト
 	};
 
@@ -403,6 +404,15 @@ private:
 	/*-------------------- ゲームの終了判定 --------------------*/
 	// ゲーム終了結果
 	GameResult gameResult_ = GameResult::kNone;
+
+	/*-------------------- ゲーム終了演出 --------------------*/
+	KamataEngine::Sprite* gameFinishSprite_ = nullptr;
+
+	float gameFinishTimer_ = 0.0f;
+
+	static constexpr float kGameFinishDisplayTime = 1.5f;
+	static constexpr float kGameFinishWidth = 1000.0f;
+	static constexpr float kGameFinishHeight = 400.0f;
 
 	/*-------------------- フェード用 --------------------*/
 	// デバッグカメラ
