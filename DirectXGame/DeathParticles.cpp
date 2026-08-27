@@ -1,5 +1,6 @@
 ﻿#include "DeathParticles.h"
 #include <algorithm>
+#include <cassert>
 
 // を毎回入力しなくてもいい様にする
 using namespace KamataEngine;

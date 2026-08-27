@@ -1,6 +1,7 @@
 ﻿#include "HitEffect.h"
 #include "Math.h"
 #include <random>
+#include <cassert>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
