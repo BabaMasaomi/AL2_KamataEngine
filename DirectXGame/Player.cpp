@@ -1117,6 +1117,9 @@ void Player::StartDeathAnimation() {
 	// 移動を停止
 	velocity_ = {};
 
+	// 敵に埋もれないよう死亡演出位置を上へ移動
+	worldTransform_.translation_.y += kDeathPositionOffsetY;
+
 	// 攻撃中だった場合はバットを消す
 	EndAttack();
 

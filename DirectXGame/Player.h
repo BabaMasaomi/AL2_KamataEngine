@@ -459,6 +459,9 @@ private:
 	// 演出中に回転する回数
 	static constexpr float kDeathRotationCount = 3.0f;
 
+	// 死亡演出時にプレイヤーを持ち上げる距離
+	static constexpr float kDeathPositionOffsetY = kHeight * 1.5f;
+
 	/*--------------- 武器モデル ---------------*/
 	// 攻撃エフェクトモデル
 	KamataEngine::Model* modelAttack_ = nullptr;
