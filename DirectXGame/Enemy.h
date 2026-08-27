@@ -466,7 +466,7 @@ private:
 
 	// 行動不能時間
 	float stunnedTimer_ = 0.0f;
-	static constexpr float kStunnedTime = 3.0f;
+	static constexpr float kStunnedTime = 5.0f;
 
 	// 最後に受けた攻撃の識別番号
 	uint32_t lastReceivedAttackSerial_ = 0;

@@ -2162,6 +2162,26 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	if (bouncedThisFrame) {
 		++bounceCount_;
 
+		// 反射時にエフェクトを生成
+		if (gameScene_) {
+
+			Vector3 effectPosition = worldTransform_.translation_;
+
+			// 敵や地形より少し手前へ表示
+			effectPosition.z -= 0.15f;
+
+			// 角に当たった場合は左右端用を優先し、
+			// 1フレームに1個だけ生成する
+			if (hitX) {
+
+				gameScene_->CreateHitEffect(effectPosition, HitEffectType::kBounceWall);
+
+			} else if (hitY) {
+
+				gameScene_->CreateHitEffect(effectPosition, HitEffectType::kBounceHorizontal);
+			}
+		}
+
 		// 新しい飛行区間に入ったので、
 		// 再び敵1体へ命中可能
 		canHitEnemyInCurrentBounce_ = true;

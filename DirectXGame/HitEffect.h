@@ -7,6 +7,9 @@ enum class HitEffectType {
 	kHit,
 	kChargedHit, // 溜め攻撃用
 	kGuard,
+
+	kBounceWall,       // 画面の左右端
+	kBounceHorizontal, // 画面の上下端
 };
 
 // 死亡演出の管理
@@ -80,6 +83,25 @@ private:
 
 	// フェード時間
 	static constexpr float kChargedHitFadeTime = 0.22f;
+
+	/*--------------- 跳ね返りエフェクト用 ---------------*/
+	// 拡大時間
+	static constexpr float kBounceExpandTime = 0.07f;
+
+	// フェード時間
+	static constexpr float kBounceFadeTime = 0.16f;
+
+	// 左右端用
+	static constexpr float kBounceWallStartScaleX = 0.35f;
+	static constexpr float kBounceWallStartScaleY = 1.20f;
+	static constexpr float kBounceWallEndScaleX = 0.75f;
+	static constexpr float kBounceWallEndScaleY = 2.60f;
+
+	// 上下端用
+	static constexpr float kBounceHorizontalStartScaleX = 1.20f;
+	static constexpr float kBounceHorizontalStartScaleY = 0.35f;
+	static constexpr float kBounceHorizontalEndScaleX = 2.60f;
+	static constexpr float kBounceHorizontalEndScaleY = 0.75f;
 
 	/*--------------- ビヘイビア管理用 ---------------*/
 	// エフェクトの種類

@@ -28,8 +28,9 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 	circleWorldTransform_.Initialize();
 	circleWorldTransform_.translation_ = pos;
 
-	// 溜め攻撃は最初から最大サイズ
+	// 溜め攻撃は最初から最大サイズ	
 	if (effectType_ == HitEffectType::kChargedHit) {
+
 		circleWorldTransform_.scale_ = {
 		    kChargedHitInitialScale,
 		    kChargedHitInitialScale,
@@ -40,7 +41,32 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 		behavior_ = HitEffectBehavior::kFadeOut;
 		behaviorRequest_ = HitEffectBehavior::kFadeOut;
 
+	} else if (effectType_ == HitEffectType::kBounceWall) {
+
+		// 左右端に当たったときは縦長
+		circleWorldTransform_.scale_ = {
+		    kBounceWallStartScaleX,
+		    kBounceWallStartScaleY,
+		    1.0f,
+		};
+
+		behavior_ = HitEffectBehavior::kExpand;
+		behaviorRequest_ = HitEffectBehavior::kExpand;
+
+	} else if (effectType_ == HitEffectType::kBounceHorizontal) {
+
+		// 上下端に当たったときは横長
+		circleWorldTransform_.scale_ = {
+		    kBounceHorizontalStartScaleX,
+		    kBounceHorizontalStartScaleY,
+		    1.0f,
+		};
+
+		behavior_ = HitEffectBehavior::kExpand;
+		behaviorRequest_ = HitEffectBehavior::kExpand;
+
 	} else {
+
 		circleWorldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
 
 		behavior_ = HitEffectBehavior::kExpand;
@@ -132,27 +158,45 @@ void HitEffect::BehaviorExpandInitialize() {
 
 // エフェクト発生の更新
 void HitEffect::BehaviorExpandUpdate() {
-	float expandTime;
+
+	float expandTime = 0.1f;
+
+	if (effectType_ == HitEffectType::kGuard) {
+		expandTime = 0.04f;
+	} else if (effectType_ == HitEffectType::kBounceWall || effectType_ == HitEffectType::kBounceHorizontal) {
+
+		expandTime = kBounceExpandTime;
+	}
+
+	expandTimer_ += 1.0f / 60.0f;
+
+	float t = std::clamp(expandTimer_ / expandTime, 0.0f, 1.0f);
 
 	if (effectType_ == HitEffectType::kHit) {
-		expandTime = 0.1f;
+
+		float scale = EaseOut(2.0f, 3.5f, t);
+		circleWorldTransform_.scale_ = {scale, scale, scale};
+
+	} else if (effectType_ == HitEffectType::kBounceWall) {
+
+		float scaleX = EaseOut(kBounceWallStartScaleX, kBounceWallEndScaleX, t);
+		float scaleY = EaseOut(kBounceWallStartScaleY, kBounceWallEndScaleY, t);
+
+		circleWorldTransform_.scale_ = {scaleX, scaleY, 1.0f};
+
+	} else if (effectType_ == HitEffectType::kBounceHorizontal) {
+
+		float scaleX = EaseOut(kBounceHorizontalStartScaleX, kBounceHorizontalEndScaleX, t);
+		float scaleY = EaseOut(kBounceHorizontalStartScaleY, kBounceHorizontalEndScaleY, t);
+
+		circleWorldTransform_.scale_ = {scaleX, scaleY, 1.0f};
+
 	} else {
-		expandTime = 0.04f;
+
+		float scale = EaseOut(0.5f, 5.0f, t);
+		circleWorldTransform_.scale_ = {scale, scale, scale};
 	}
-	// タイマーを加算(1/60秒)
-	expandTimer_ += 1.0f / 60.0f;
-	// イージングでScaleを変更
-	float t = std::clamp(expandTimer_ / expandTime, 0.0f, 1.0f);
-	float s;
-	// エフェクトの種類でイージングを変更
-	if (effectType_ == HitEffectType::kHit) {
-		s = EaseOut(2.0f, 3.5f, t);
-	} else {
-		s = EaseOut(0.5f, 5.0f, t);
-	}
-	// スケール変更
-	circleWorldTransform_.scale_ = {s, s, s};
-	// フェードアウトに移行
+
 	if (t >= 1.0f) {
 		behaviorRequest_ = HitEffectBehavior::kFadeOut;
 	}
@@ -176,7 +220,12 @@ void HitEffect::BehaviorFadeOutUpdate() {
 
 		fadeTime = 0.3f;
 
+	} else if (effectType_ == HitEffectType::kBounceWall || effectType_ == HitEffectType::kBounceHorizontal) {
+
+		fadeTime = kBounceFadeTime;
+
 	} else {
+
 		fadeTime = 0.12f;
 	}
 
@@ -193,6 +242,23 @@ void HitEffect::BehaviorFadeOutUpdate() {
 		float scale = EaseOut(kChargedHitInitialScale, kChargedHitEndScale, t);
 
 		circleWorldTransform_.scale_ = {scale, scale, scale};
+	}
+
+	if (effectType_ == HitEffectType::kBounceWall) {
+
+		float scaleX = EaseOut(kBounceWallEndScaleX, kBounceWallEndScaleX * 1.25f, t);
+
+		float scaleY = EaseOut(kBounceWallEndScaleY, kBounceWallEndScaleY * 1.25f, t);
+
+		circleWorldTransform_.scale_ = {scaleX, scaleY, 1.0f};
+
+	} else if (effectType_ == HitEffectType::kBounceHorizontal) {
+
+		float scaleX = EaseOut(kBounceHorizontalEndScaleX, kBounceHorizontalEndScaleX * 1.25f, t);
+
+		float scaleY = EaseOut(kBounceHorizontalEndScaleY, kBounceHorizontalEndScaleY * 1.25f, t);
+
+		circleWorldTransform_.scale_ = {scaleX, scaleY, 1.0f};
 	}
 
 	if (t >= 1.0f) {
