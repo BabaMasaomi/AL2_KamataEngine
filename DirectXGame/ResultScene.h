@@ -2,6 +2,8 @@
 
 #include "Fade.h"
 #include "GameResult.h"
+#include "Skydome.h"
+#include "Transform.h"
 #include "KamataEngine.h"
 #include <array>
 #include <vector>
@@ -53,8 +55,6 @@ private:
 	void UpdateMenuAppearance();
 	void DrawMenu();
 
-	KamataEngine::Sprite* backgroundSprite_ = nullptr;
-
 	Fade* fade_ = nullptr;
 
 	/*-------------------- リザルトスコア --------------------*/
@@ -103,6 +103,55 @@ private:
 
 	// スコア描画
 	void DrawScore();
+
+
+	/*-------------------- 3D表示 --------------------*/
+	Transform transform_;
+
+	KamataEngine::Camera camera_;
+
+	/*-------------------- 天球 --------------------*/
+	KamataEngine::Model* modelSkydome_ = nullptr;
+	Skydome* skydome_ = nullptr;
+
+	static constexpr float kSkydomeRotationSpeed = 0.0015f;
+
+	/*-------------------- リザルト用プレイヤー --------------------*/
+	KamataEngine::Model* modelPlayer_ = nullptr;
+	KamataEngine::Model* modelBat_ = nullptr;
+
+	KamataEngine::WorldTransform worldTransformPlayer_;
+	KamataEngine::WorldTransform worldTransformBat_;
+
+	// アニメーション経過時間
+	float resultAnimationTimer_ = 0.0f;
+
+	// 表示位置・大きさ
+	static constexpr float kResultPlayerX = 7.5f;
+	static constexpr float kResultPlayerY = 2.0f;
+	static constexpr float kResultPlayerScale = 5.0f;
+
+	// 時間切れ時の横回転速度
+	static constexpr float kClearRotationSpeed = 0.055f;
+
+	// HP0時の前傾角度
+	static constexpr float kGameOverBaseNodAngle = 22.0f;
+
+	// 頷きの振幅
+	static constexpr float kGameOverNodAmplitude = 8.0f;
+
+	// 頷き速度
+	static constexpr float kGameOverNodSpeed = 3.5f;
+
+	// プレイヤー中心からバットの手元までの距離
+	static constexpr float kResultBatForwardDistance = 2.2f;
+	static constexpr float kResultBatHeightOffset = 0.2f;
+
+	// プレイヤー正面へバットを配置
+	void UpdateBatTransform();
+
+	void InitializeResultModels();
+	void UpdateResultAnimation();
 
 	/*-------------------- UI音声 --------------------*/
 	KamataEngine::Audio* audio_ = nullptr;

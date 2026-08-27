@@ -1,5 +1,7 @@
 ﻿#include "ResultScene.h"
 #include <string>
+#include <cmath>
+#include <numbers>
 
 using namespace KamataEngine;
 
@@ -7,11 +9,6 @@ ResultScene::ResultScene() {}
 
 ResultScene::~ResultScene() {
 	StopResultBgm();
-
-	/*========== 背景 ==========*/
-	delete backgroundSprite_;
-	backgroundSprite_ = nullptr;
-
 	/*========== Game Finish ==========*/
 	delete gameFinishSprite_;
 	gameFinishSprite_ = nullptr;
@@ -33,6 +30,18 @@ ResultScene::~ResultScene() {
 		sprite = nullptr;
 	}
 
+	delete skydome_;
+	skydome_ = nullptr;
+
+	delete modelSkydome_;
+	modelSkydome_ = nullptr;
+
+	delete modelPlayer_;
+	modelPlayer_ = nullptr;
+
+	delete modelBat_;
+	modelBat_ = nullptr;
+
 	/*========== フェード ==========*/
 
 	delete fade_;
@@ -49,7 +58,7 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 	selectedMenuIndex_ = 0;
 	phase_ = Phase::kFadeIn;
 
-	uint32_t textureHandle = TextureManager::Load("white1x1.png");
+	InitializeResultModels();
 
 	Vector4 backgroundColor;
 
@@ -61,10 +70,6 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 		// ゲームオーバー画面
 		backgroundColor = {0.45f, 0.08f, 0.08f, 1.0f};
 	}
-
-	backgroundSprite_ = Sprite::Create(textureHandle, {0.0f, 0.0f}, backgroundColor);
-
-	backgroundSprite_->SetSize({1280.0f, 720.0f});
 
 	/*========== Game Finish画像 ==========*/
 	uint32_t gameFinishTexture = TextureManager::Load("ResultBig_bat.png");
@@ -146,33 +151,44 @@ void ResultScene::Update() {
 		break;
 	}
 
+	UpdateResultAnimation();
+
 	fade_->Update();
 }
 
 // 描画
 void ResultScene::Draw() {
-	Sprite::PreDraw();
+	/*========== 3D描画 ==========*/
+	Model::PreDraw();
 
-	/*========== 背景 ==========*/
-
-	if (backgroundSprite_) {
-		backgroundSprite_->Draw();
+	if (skydome_) {
+		skydome_->Draw();
 	}
 
-	/*========== Game Finish ==========*/
+	if (modelPlayer_) {
+		modelPlayer_->Draw(worldTransformPlayer_, camera_);
+	}
+
+	// 時間切れ時だけバットを表示
+	if (result_ == GameResult::kClear && modelBat_) {
+
+		modelBat_->Draw(worldTransformBat_, camera_);
+	}
+
+	Model::PostDraw();
+
+	/*========== UI描画 ==========*/
+	Sprite::PreDraw();
 
 	if (gameFinishSprite_) {
 		gameFinishSprite_->Draw();
 	}
-
-	/*========== 最終スコア ==========*/
 
 	DrawScore();
 	DrawMenu();
 
 	Sprite::PostDraw();
 
-	// UIより手前にフェードを描画
 	fade_->Draw();
 }
 
@@ -352,6 +368,133 @@ void ResultScene::DrawMenu() {
 			sprite->Draw();
 		}
 	}
+}
+
+void ResultScene::UpdateBatTransform() {
+	const float rotationX = worldTransformPlayer_.rotation_.x;
+
+	const float rotationY = worldTransformPlayer_.rotation_.y;
+
+	/*
+	 * プレイヤーの前方向。
+	 * Y回転に加えて、ゲームオーバー時の俯きも反映する。
+	 */
+	const float cosX = std::cos(rotationX);
+
+	Vector3 forward = {
+	    std::sin(rotationY) * cosX,
+	    -std::sin(rotationX),
+	    std::cos(rotationY) * cosX,
+	};
+
+	// バットの手元をプレイヤーの正面へ配置
+	worldTransformBat_.translation_ = {
+	    worldTransformPlayer_.translation_.x + forward.x * kResultBatForwardDistance,
+
+	    worldTransformPlayer_.translation_.y + kResultBatHeightOffset + forward.y * kResultBatForwardDistance,
+
+	    worldTransformPlayer_.translation_.z + forward.z * kResultBatForwardDistance,
+	};
+
+	/*
+	 * Bat.objの長手方向をプレイヤー正面へ向ける。
+	 * プレイヤーの俯きにも追従させる。
+	 */
+	worldTransformBat_.rotation_.x = rotationX;
+	worldTransformBat_.rotation_.y = rotationY;
+	worldTransformBat_.rotation_.z = -std::numbers::pi_v<float> / 2.0f;
+}
+
+void ResultScene::InitializeResultModels() {
+	/*========== カメラ ==========*/
+	camera_.farZ = 550.0f;
+	camera_.Initialize();
+
+	/*========== 天球 ==========*/
+	modelSkydome_ = Model::CreateFromOBJ("skydome", true);
+
+	skydome_ = new Skydome();
+	skydome_->Initialize(modelSkydome_, &camera_);
+	skydome_->SetRotationSpeed(kSkydomeRotationSpeed);
+	skydome_->Update();
+
+	/*========== プレイヤー ==========*/
+	modelPlayer_ = Model::CreateFromOBJ("CapPlayer", true);
+
+	worldTransformPlayer_.Initialize();
+
+	worldTransformPlayer_.translation_ = {
+	    kResultPlayerX,
+	    kResultPlayerY,
+	    0.0f,
+	};
+
+	worldTransformPlayer_.scale_ = {
+	    kResultPlayerScale,
+	    kResultPlayerScale,
+	    kResultPlayerScale,
+	};
+
+	// 初期状態は画面方向
+	worldTransformPlayer_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
+
+	/*========== バット ==========*/
+	modelBat_ = Model::CreateFromOBJ("Bat", true);
+
+	worldTransformBat_.Initialize();
+
+	worldTransformBat_.scale_ = {
+	    3.8f,
+	    3.8f,
+	    3.8f,
+	};
+
+	resultAnimationTimer_ = 0.0f;
+
+	transform_.worldMatrixUpdate(worldTransformPlayer_);
+	transform_.worldMatrixUpdate(worldTransformBat_);
+
+	camera_.UpdateMatrix();
+}
+
+void ResultScene::UpdateResultAnimation() {
+	const float deltaTime = 1.0f / 60.0f;
+
+	resultAnimationTimer_ += deltaTime;
+
+	if (skydome_) {
+		skydome_->Update();
+	}
+
+	if (result_ == GameResult::kClear) {
+		/*========== 時間切れ：横回転 ==========*/
+
+		worldTransformPlayer_.rotation_.x = 0.0f;
+		worldTransformPlayer_.rotation_.z = 0.0f;
+
+		worldTransformPlayer_.rotation_.y += kClearRotationSpeed;	
+
+		// 常にプレイヤー正面へ配置
+		UpdateBatTransform();
+
+	} else if (result_ == GameResult::kGameOver) {
+		/*========== HP0：俯いて頷く ==========*/
+
+		const float degreeToRadian = std::numbers::pi_v<float> / 180.0f;
+
+		float nodDegree = kGameOverBaseNodAngle + std::sin(resultAnimationTimer_ * kGameOverNodSpeed) * kGameOverNodAmplitude;
+
+		worldTransformPlayer_.rotation_.x = nodDegree * degreeToRadian;
+
+		worldTransformPlayer_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
+
+		worldTransformPlayer_.rotation_.z = 0.0f;
+	}
+
+	transform_.worldMatrixUpdate(worldTransformPlayer_);
+	transform_.worldMatrixUpdate(worldTransformBat_);
+
+	camera_.UpdateMatrix();
 }
 
 // リザルトBGMを停止する
