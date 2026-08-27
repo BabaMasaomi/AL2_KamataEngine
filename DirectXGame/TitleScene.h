@@ -141,6 +141,12 @@ private:
 	// カメラのワールドトランスフォーム
 	KamataEngine::WorldTransform worldTransformCamera_;
 
+	/*-------------------- UI音声 --------------------*/
+	KamataEngine::Audio* audio_ = nullptr;
+
+	uint32_t cursorMovementSoundHandle_ = 0;
+	uint32_t selectSoundHandle_ = 0;
+
 	/*-------------------- デバッグ --------------------*/
 	// デバッグカメラ有効
 	bool isDebugCameraActive_ = false;

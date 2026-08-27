@@ -1715,12 +1715,13 @@ void Enemy::BehaviorDeathUpdate() {
 	}
 
 	/*========== 破裂開始時のエフェクト ==========*/
-
 	if (!hasCreatedDeathBurstEffect_) {
 		hasCreatedDeathBurstEffect_ = true;
 
 		if (gameScene_) {
 			gameScene_->CreateHitEffect(GetWorldPos(), HitEffectType::kHit);
+
+			gameScene_->PlayEnemyBurstSound();
 		}
 	}
 

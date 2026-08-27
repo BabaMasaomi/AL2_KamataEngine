@@ -9,7 +9,7 @@
 
 // コンストラクタ&デストラクタ
 Player::Player() {}
-Player::~Player() {}
+Player::~Player() { StopChargingSound(); }
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -56,6 +56,16 @@ void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const 
 	isDeathAnimationFinished_ = false;
 	deathAnimationTimer_ = 0.0f;
 	deathAnimationStartScale_ = worldTransform_.scale_;
+
+	/*--------------- 攻撃SE ---------------*/
+	audio_ = Audio::GetInstance();
+
+	swingSoundHandle_ = audio_->LoadWave("swing.mp3");
+
+	chargingSoundHandle_ = audio_->LoadWave("charging.mp3");
+
+	chargingVoiceHandle_ = 0;
+	isChargingSoundPlaying_ = false;
 }
 
 /// <summary>
@@ -353,6 +363,16 @@ void Player::BehaviorAttackInitialize() {
 
 	// バットを表示
 	isAttackEffect_ = true;
+
+	// 溜め開始音
+	if (audio_ && !isChargingSoundPlaying_) {
+		chargingVoiceHandle_ = audio_->PlayWave(
+		    chargingSoundHandle_,
+		    true, // 溜めている間はループ
+		    0.28f);
+
+		isChargingSoundPlaying_ = true;
+	}
 }
 
 /// <summary>
@@ -413,6 +433,14 @@ void Player::BehaviorAttackUpdate() {
 		}
 
 		// SPACEキーを離したときに攻撃種類を確定
+		// 溜め音を停止
+		StopChargingSound();
+
+		// バットを振る音
+		if (audio_) {
+			audio_->PlayWave(swingSoundHandle_, false, 0.20f);
+		}
+
 		attackType_ = isChargeReady_ ? AttackType::kCharged : AttackType::kNormal;
 
 		++attackSerial_;
@@ -533,6 +561,8 @@ void Player::BehaviorAttackUpdate() {
 /// ノックバック初期化
 /// </summary>
 void Player::BehaviorKnockBackInitialize() {
+	StopChargingSound();
+
 	knockBackTimer_ = 0.0f;
 
 	velocity_.x = 0.0f;
@@ -1112,6 +1142,8 @@ void Player::RequestKnockBack(float direction) {
 
 // 攻撃を終了する
 void Player::EndAttack() {
+	StopChargingSound();
+
 	isAttackEffect_ = false;
 
 	worldTransform_.scale_ = {2.0f, 2.0f, 2.0f};
@@ -1203,4 +1235,15 @@ void Player::UpdateDeathAnimation() {
 		isDeathAnimationPlaying_ = false;
 		isDeathAnimationFinished_ = true;
 	}
+}
+
+void Player::StopChargingSound() {
+	if (!audio_ || !isChargingSoundPlaying_) {
+		return;
+	}
+
+	audio_->StopWave(chargingVoiceHandle_);
+
+	chargingVoiceHandle_ = 0;
+	isChargingSoundPlaying_ = false;
 }

@@ -219,6 +219,25 @@ void GameScene::Initialize(bool skipTutorial) {
 	playerDeathEffect_ = new PlayerDeathEffect();
 	playerDeathEffect_->Initialize(hitEffectModel_, &camera_);
 
+	/*--------------- 音声 ---------------*/
+	audio_ = Audio::GetInstance();
+
+	normalAttackHitSoundHandle_ = audio_->LoadWave("normalAttack.mp3");
+
+	chargedAttackHitSoundHandle_ = audio_->LoadWave("chargedAttack.mp3");
+
+	receiveDamageSoundHandle_ = audio_->LoadWave("receiveDamage.mp3");
+
+	enemyBurstSoundHandle_ = audio_->LoadWave("burst.mp3");
+
+	enemyCollisionSoundHandle_ = audio_->LoadWave("slash.mp3");
+
+	countDownSoundHandle_ = audio_->LoadWave("countDown.mp3");
+
+	countStartSoundHandle_ = audio_->LoadWave("countStart.mp3");
+
+	gameFinishSoundHandle_ = audio_->LoadWave("gameFinish.mp3");
+
 	/*--------------- カメラ ---------------*/
 	// カメラコントローラの生成
 	camaraController_ = new CameraController();
@@ -1010,6 +1029,15 @@ void GameScene::UpdateHitEffects() {
 	});
 }
 
+/*-------------------- 敵の破裂音を再生 --------------------*/
+void GameScene::PlayEnemyBurstSound() {
+	if (!audio_) {
+		return;
+	}
+
+	audio_->PlayWave(enemyBurstSoundHandle_, false, 0.55f);
+}
+
 /*-------------------- ヒットストップ開始 --------------------*/
 void GameScene::StartChargedAttackHitStop() { hitStopTimer_ = (std::max)(hitStopTimer_, kChargedAttackHitStopTime); }
 
@@ -1044,6 +1072,9 @@ void GameScene::GenerateBlocks() {
 void GameScene::CheckAllCollisions() {
 	AABB playerAABB, attackAABB, enemyAABB;
 
+	// 同時に複数の敵へ命中しても、効果音は1回だけ
+	bool hasPlayedBatHitSound = false;
+
 	// 自キャラのAABB取得
 	playerAABB = player_->GetAABB();
 
@@ -1065,6 +1096,22 @@ void GameScene::CheckAllCollisions() {
 
 			if (CheckAABBCollision(attackAABB, enemyAABB)) {
 				hitByPlayerAttack = enemy->OnCollisionPlayer(player_);
+
+				// 敵側で攻撃を受け付けた場合だけ再生
+				if (hitByPlayerAttack && !hasPlayedBatHitSound && audio_) {
+
+					uint32_t soundHandle = normalAttackHitSoundHandle_;
+					float volume = 0.65f;
+
+					if (player_->GetAttackType() == AttackType::kCharged) {
+						soundHandle = chargedAttackHitSoundHandle_;
+						volume = 0.85f;
+					}
+
+					audio_->PlayWave(soundHandle, false, volume);
+
+					hasPlayedBatHitSound = true;
+				}
 			}
 		}
 
@@ -1073,6 +1120,10 @@ void GameScene::CheckAllCollisions() {
 
 			if (player_->CanReceiveDamage()) {
 				player_->OnCollisionEnemy(enemy);
+
+				if (audio_) {
+					audio_->PlayWave(receiveDamageSoundHandle_, false, 0.75f);
+				}
 
 				Vector3 effectPosition = player_->GetWorldPos();
 
@@ -1139,6 +1190,11 @@ void GameScene::CheckEnemyCollisions() {
 
 			// 対象へスタンダメージとノックバック
 			target->OnCollisionBlownAwayEnemy(knockBackDirection);
+
+			// 吹き飛んだ敵が別の敵へ命中した音
+			if (audio_) {
+				audio_->PlayWave(enemyCollisionSoundHandle_, false, 0.70f);
+			}
 
 			// この飛行区間の攻撃権を消費
 			attacker->ConsumeBlownAwayHit();
@@ -1623,8 +1679,12 @@ void GameScene::ChangePhase() {
 
 		} else if (playTimer_ >= kClearTime) {
 			gameResult_ = GameResult::kClear;
-
 			gameFinishTimer_ = 0.0f;
+
+			if (audio_) {
+				audio_->PlayWave(gameFinishSoundHandle_, false, 0.75f);
+			}
+
 			phase_ = GameScene::Phase::kFinish;
 		}
 
@@ -1636,6 +1696,11 @@ void GameScene::ChangePhase() {
 		if (player_->IsDeathAnimationFinished() && hasCreatedPlayerDeathEffect_ && isPlayerDeathEffectFinished) {
 
 			gameFinishTimer_ = 0.0f;
+
+			if (audio_) {
+				audio_->PlayWave(gameFinishSoundHandle_, false, 0.75f);
+			}
+
 			phase_ = GameScene::Phase::kFinish;
 		}
 
@@ -1800,7 +1865,6 @@ void GameScene::DrawTutorialGuide() {
 		break;
 	}
 }
-
 
 void GameScene::InitializeHpDisplay() {
 	hpIconSprites_.clear();
@@ -2121,25 +2185,40 @@ void GameScene::UpdateCountdown() {
 }
 
 void GameScene::ChangeCountdownState(CountdownState state) {
-
 	countdownState_ = state;
 	countdownTimer_ = 0.0f;
 
 	switch (countdownState_) {
 	case CountdownState::kThree:
 		countdownSprite_->SetTextureHandle(countdownTexture3_);
+
+		if (audio_) {
+			audio_->PlayWave(countDownSoundHandle_, false, 0.60f);
+		}
 		break;
 
 	case CountdownState::kTwo:
 		countdownSprite_->SetTextureHandle(countdownTexture2_);
+
+		if (audio_) {
+			audio_->PlayWave(countDownSoundHandle_, false, 0.60f);
+		}
 		break;
 
 	case CountdownState::kOne:
 		countdownSprite_->SetTextureHandle(countdownTexture1_);
+
+		if (audio_) {
+			audio_->PlayWave(countDownSoundHandle_, false, 0.60f);
+		}
 		break;
 
 	case CountdownState::kStart:
 		countdownSprite_->SetTextureHandle(countdownTextureStart_);
+
+		if (audio_) {
+			audio_->PlayWave(countStartSoundHandle_, false, 0.70f);
+		}
 		break;
 
 	case CountdownState::kNone:

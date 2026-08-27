@@ -103,4 +103,10 @@ private:
 
 	// スコア描画
 	void DrawScore();
+
+	/*-------------------- UI音声 --------------------*/
+	KamataEngine::Audio* audio_ = nullptr;
+
+	uint32_t cursorMovementSoundHandle_ = 0;
+	uint32_t selectSoundHandle_ = 0;
 };

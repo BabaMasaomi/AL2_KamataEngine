@@ -308,7 +308,7 @@ private:
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP
-	static constexpr int32_t kMaxHp = 1;
+	static constexpr int32_t kMaxHp = 5;
 
 	// 現在HP
 	int32_t hp_ = kMaxHp;
@@ -486,6 +486,20 @@ private:
 
 	// エフェクトをモデルより少しカメラ側へ出す距離
 	static constexpr float kChargeEffectFrontOffset = 0.12f;
+
+	/*-------------------- 攻撃SE --------------------*/
+	KamataEngine::Audio* audio_ = nullptr;
+
+	// 音声データ
+	uint32_t swingSoundHandle_ = 0;
+	uint32_t chargingSoundHandle_ = 0;
+
+	// 現在再生中の溜め音
+	uint32_t chargingVoiceHandle_ = 0;
+	bool isChargingSoundPlaying_ = false;
+
+	// 溜め音を停止
+	void StopChargingSound();
 
 	/*--------------- ビヘイビア管理用 ---------------*/
 	// 振る舞い

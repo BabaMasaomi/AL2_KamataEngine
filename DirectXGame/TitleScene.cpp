@@ -99,6 +99,14 @@ void TitleScene::Initialize() {
 	isPlayStartAnimation_ = false;
 	playerRotationSpeed_ = kPlayerIdleRotationSpeed;
 
+	/*--------------- UI音声 ---------------*/
+	audio_ = Audio::GetInstance();
+
+	cursorMovementSoundHandle_ = audio_->LoadWave("cursorMovement.mp3");
+
+	selectSoundHandle_ = audio_->LoadWave("select.mp3");
+
+	// メニューUIの初期化
 	InitializeMenu();
 
 	// フェード用
@@ -249,22 +257,47 @@ void TitleScene::UpdateMenu() {
 
 	if (isCreditVisible_) {
 		if (input->TriggerKey(DIK_ESCAPE) || input->TriggerKey(DIK_SPACE) || input->TriggerKey(DIK_RETURN)) {
+
 			isCreditVisible_ = false;
+
+			if (audio_) {
+				audio_->PlayWave(selectSoundHandle_, false, 0.55f);
+			}
 		}
+
 		return;
 	}
+
+	// 上下移動操作
+	bool movedCursor = false;
 
 	if (input->TriggerKey(DIK_UP)) {
 		selectedMenuIndex_ = (selectedMenuIndex_ + menuSprites_.size() - 1) % menuSprites_.size();
-		UpdateMenuAppearance();
-	}
-	if (input->TriggerKey(DIK_DOWN)) {
+
+		movedCursor = true;
+
+	} else if (input->TriggerKey(DIK_DOWN)) {
 		selectedMenuIndex_ = (selectedMenuIndex_ + 1) % menuSprites_.size();
-		UpdateMenuAppearance();
+
+		movedCursor = true;
 	}
 
+	if (movedCursor) {
+		UpdateMenuAppearance();
+
+		if (audio_) {
+			audio_->PlayWave(cursorMovementSoundHandle_, false, 0.35f);
+		}
+	}
+
+	// 決定入力をチェック
 	if (!input->TriggerKey(DIK_SPACE) && !input->TriggerKey(DIK_RETURN)) {
 		return;
+	}
+
+	// 決定音を鳴らす
+	if (audio_) {
+		audio_->PlayWave(selectSoundHandle_, false, 0.55f);
 	}
 
 	switch (static_cast<MenuItem>(selectedMenuIndex_)) {

@@ -149,6 +149,27 @@ private:
 	// プレイヤー被ダメージ用赤リング
 	KamataEngine::Model* playerDamageEffectModel_ = nullptr;
 
+	/*-------------------- 音声 --------------------*/
+	KamataEngine::Audio* audio_ = nullptr;
+
+	// プレイヤー攻撃
+	uint32_t normalAttackHitSoundHandle_ = 0;
+	uint32_t chargedAttackHitSoundHandle_ = 0;
+
+	// プレイヤー被ダメージ
+	uint32_t receiveDamageSoundHandle_ = 0;
+
+	// カウントダウン
+	uint32_t countDownSoundHandle_ = 0;
+	uint32_t countStartSoundHandle_ = 0;
+
+	// ゲーム終了
+	uint32_t gameFinishSoundHandle_ = 0;
+
+	// 敵関連
+	uint32_t enemyBurstSoundHandle_ = 0;
+	uint32_t enemyCollisionSoundHandle_ = 0;
+
 	/*--------------- ヒットストップ ---------------*/
 	// ヒットストップ開始までの残り時間
 	float hitStopDelayTimer_ = 0.0f;
@@ -445,6 +466,9 @@ public:
 
 	// ヒットエフェクトを更新
 	void UpdateHitEffects();
+
+	// 敵の破裂音を再生
+	void PlayEnemyBurstSound();
 
 	// 溜め攻撃命中時のヒットストップを開始
 	void StartChargedAttackHitStop();

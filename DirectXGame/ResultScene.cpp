@@ -95,6 +95,13 @@ void ResultScene::Initialize(GameResult result, uint32_t score) {
 	fade_ = new Fade();
 	fade_->Initialize();
 	fade_->Start(Fade::Status::FadeIn, 0.75f);
+
+	/*--------------- UI音声 ---------------*/
+	audio_ = Audio::GetInstance();
+
+	cursorMovementSoundHandle_ = audio_->LoadWave("cursorMovement.mp3");
+
+	selectSoundHandle_ = audio_->LoadWave("select.mp3");
 }
 
 void ResultScene::Update() {
@@ -110,9 +117,17 @@ void ResultScene::Update() {
 		if (Input::GetInstance()->TriggerKey(DIK_UP) || Input::GetInstance()->TriggerKey(DIK_DOWN)) {
 			selectedMenuIndex_ = 1 - selectedMenuIndex_;
 			UpdateMenuAppearance();
+
+			if (audio_) {
+				audio_->PlayWave(cursorMovementSoundHandle_, false, 0.35f);
+			}
 		}
 
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE) || Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+			if (audio_) {
+				audio_->PlayWave(selectSoundHandle_, false, 0.55f);
+			}
+
 			action_ = (selectedMenuIndex_ == 0) ? Action::kReturnToTitle : Action::kRetry;
 			fade_->Start(Fade::Status::FadeOut, 0.75f);
 			phase_ = Phase::kFadeOut;
