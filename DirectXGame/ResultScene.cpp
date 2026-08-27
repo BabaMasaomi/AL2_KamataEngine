@@ -9,22 +9,18 @@ ResultScene::~ResultScene() {
 	StopResultBgm();
 
 	/*========== 背景 ==========*/
-
 	delete backgroundSprite_;
 	backgroundSprite_ = nullptr;
 
 	/*========== Game Finish ==========*/
-
 	delete gameFinishSprite_;
 	gameFinishSprite_ = nullptr;
 
 	/*========== スコアアイコン ==========*/
-
 	delete scoreIconSprite_;
 	scoreIconSprite_ = nullptr;
 
 	/*========== スコア数字 ==========*/
-
 	for (Sprite* digitSprite : scoreDigitSprites_) {
 
 		delete digitSprite;
