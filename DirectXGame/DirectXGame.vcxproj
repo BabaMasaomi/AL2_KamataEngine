@@ -157,6 +157,7 @@
     <ClCompile Include="BackgroundEnemy.cpp" />
     <ClCompile Include="BasicCharacterComposition.cpp" />
     <ClCompile Include="CameraController.cpp" />
+    <ClCompile Include="ChargeEffect.cpp" />
     <ClCompile Include="DeathParticles.cpp" />
     <ClCompile Include="Enemy.cpp" />
     <ClCompile Include="Fade.cpp" />
@@ -274,6 +275,7 @@
     <ClInclude Include="BackgroundEnemy.h" />
     <ClInclude Include="BasicCharacterComposition.h" />
     <ClInclude Include="CameraController.h" />
+    <ClInclude Include="ChargeEffect.h" />
     <ClInclude Include="DeathParticles.h" />
     <ClInclude Include="Enemy.h" />
     <ClInclude Include="Fade.h" />

@@ -25,6 +25,10 @@ GameScene::~GameScene() {
 		delete hitEffect; // ヒットエフェクトの3Dモデルの解放
 	}
 
+	// 溜め攻撃エフェクトの解放
+	delete chargeEffect_;
+	chargeEffect_ = nullptr;
+
 	// 複数ブロックの解放処理
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
@@ -197,6 +201,10 @@ void GameScene::Initialize(bool skipTutorial) {
 	HitEffect::SetGuardModel(guardEffectModel_);
 	HitEffect::SetCamera(&camera_);
 
+	// 溜め攻撃のエフェクトの生成
+	chargeEffect_ = new ChargeEffect();
+	chargeEffect_->Initialize(guardEffectModel_, &camera_);
+
 	/*--------------- カメラ ---------------*/
 	// カメラコントローラの生成
 	camaraController_ = new CameraController();
@@ -309,6 +317,10 @@ void GameScene::Update() {
 		// フェード処理処理宙にプレイヤーを正しい位置に描画させる
 		player_->Update();
 
+		if (chargeEffect_ && player_) {
+			chargeEffect_->Update(player_->IsCharging(), player_->IsChargeReady(), player_->GetChargeRatio(), player_->GetChargeEffectPosition());
+		}
+
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
 			enemy->Update();
@@ -402,6 +414,10 @@ void GameScene::Update() {
 
 		// プレイヤーの更新
 		player_->Update();
+
+		if (chargeEffect_ && player_) {
+			chargeEffect_->Update(player_->IsCharging(), player_->IsChargeReady(), player_->GetChargeRatio(), player_->GetChargeEffectPosition());
+		}
 
 		// 敵の更新
 		for (Enemy* enemy : enemies_) {
@@ -670,6 +686,11 @@ void GameScene::Draw() {
 
 	// プレイヤーの描画
 	player_->Draw();
+
+	// 溜め攻撃のエフェクトの描画
+	if (chargeEffect_) {
+		chargeEffect_->Draw();
+	}
 
 	Model::PostDraw();
 

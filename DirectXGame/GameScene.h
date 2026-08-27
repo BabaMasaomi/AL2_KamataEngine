@@ -5,6 +5,7 @@
 #include "Fade.h"
 #include "GameResult.h"
 #include "HitEffect.h"
+#include "ChargeEffect.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Player.h"
@@ -140,6 +141,9 @@ private:
 
 	// ヒットエフェクトのリスト
 	std::list<HitEffect*> hitEffects_ = {};	
+
+	// チャージ収束エフェクト
+	ChargeEffect* chargeEffect_ = nullptr;
 
 	/*--------------- ヒットストップ ---------------*/
 	// ヒットストップ開始までの残り時間

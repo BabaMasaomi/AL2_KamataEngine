@@ -186,6 +186,17 @@ public:
 	// 死亡演出が終了したか
 	bool IsDeathAnimationFinished() const { return isDeathAnimationFinished_; }
 
+	// 現在チャージ入力中か
+	bool IsCharging() const;
+
+	bool IsChargeReady() const { return isChargeReady_; }
+
+	// チャージの進行率を0～1で取得
+	float GetChargeRatio() const;
+
+	// チャージリングの表示位置
+	KamataEngine::Vector3 GetChargeEffectPosition() const;
+
 	// アクセッサ
 	// ゲッター
 	bool GetIsDead() { return isDead_; }
@@ -200,7 +211,7 @@ public:
 	LRDirection GetLRDirection() const { return lrDirection_; }
 
 	// 現在の攻撃を識別する番号
-	uint32_t GetAttackSerial() const { return attackSerial_; }
+	uint32_t GetAttackSerial() const { return attackSerial_; }	
 
 	AttackType GetAttackType() const { return attackType_; }
 

@@ -4,8 +4,8 @@
 #include "MapChipField.h"
 #include <algorithm>
 #include <cassert>
-#include <numbers>
 #include <cmath>
+#include <numbers>
 
 // コンストラクタ&デストラクタ
 Player::Player() {}
@@ -984,6 +984,28 @@ Vector3 Player::GetWorldPos() {
 	worldPos.z = worldTransform_.translation_.z;
 
 	return worldPos;
+}
+
+//
+bool Player::IsCharging() const { return behaivior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kCharging; }
+
+//
+float Player::GetChargeRatio() const { return std::clamp(chargeTimer_ / kChargeRequiredTime, 0.0f, 1.0f); }
+
+//
+Vector3 Player::GetChargeEffectPosition() const {
+	float direction = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
+
+	Vector3 position = worldTransform_.translation_;
+
+	// バットの手元付近
+	position.x += direction * 0.72f;
+	position.y += 0.10f;
+
+	// プレイヤーやバットより少し手前
+	position.z -= 0.30f;
+
+	return position;
 }
 
 // 本体のAABBを取得
