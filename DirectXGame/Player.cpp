@@ -37,7 +37,7 @@ void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const 
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
 
 	// バットの長さをプレイヤーに合わせる
-	worldTransformAttack_.scale_ = {1.0f, 1.0f, 1.0f};
+	worldTransformAttack_.scale_ = {1.5f, 1.5f, 1.5f};
 
 	// 3Dモデルの生成
 	model_ = model;

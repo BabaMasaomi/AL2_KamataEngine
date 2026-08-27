@@ -3,6 +3,8 @@
 #include "ResultScene.h"
 #include "TitleScene.h"
 #include <Windows.h>
+#include <array>
+#include <vector>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -125,11 +127,16 @@ void ChangeScene() {
 		if (gameScene->GetIsFinished()) {
 			GameResult result = gameScene->GetGameResult();
 
+			// GameSceneを削除する前にスコアを保存
+			uint32_t score = gameScene->GetScore();
+
 			delete gameScene;
 			gameScene = nullptr;
 
 			resultScene = new ResultScene();
-			resultScene->Initialize(result);
+
+			// 結果とスコアを渡す
+			resultScene->Initialize(result, score);
 
 			scene = Scene::kResult;
 		}
@@ -186,6 +193,13 @@ void DrawScene() {
 	case Scene::kGame:
 		// ゲームシーンの描画
 		gameScene->Draw();
+
+	case Scene::kResult:
+		// リザルトシーンの描画
+		if (resultScene) {
+			resultScene->Draw();
+		}
+		break;
 
 		break;
 	default:

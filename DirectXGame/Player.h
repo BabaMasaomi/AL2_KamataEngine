@@ -297,7 +297,7 @@ private:
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP
-	static constexpr int32_t kMaxHp = 3;
+	static constexpr int32_t kMaxHp = 5;
 
 	// 現在HP
 	int32_t hp_ = kMaxHp;
@@ -358,11 +358,11 @@ private:
 	static constexpr float kBatAngleEnd = 100.0f;
 
 	// 攻撃判定の大きさ
-	static constexpr float kAttackWidth = 4.6f;
+	static constexpr float kAttackWidth = 7.0f;
 	static constexpr float kAttackHeight = 2.6f;
 
 	// プレイヤー中心から攻撃判定までの距離
-	static constexpr float kAttackOffsetX = 1.8f;
+	static constexpr float kAttackOffsetX = 2.0f;
 
 	// 1回の攻撃で同じ敵へ複数回当てないためのフラグ
 	bool hasHitEnemy_ = false;

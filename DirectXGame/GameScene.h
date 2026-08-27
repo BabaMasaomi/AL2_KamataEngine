@@ -73,7 +73,7 @@ private:
 	static constexpr size_t kInitialEnemyCount = 3;
 
 	// 補充解放後の同時出現上限
-	static constexpr size_t kMaxEnemyCount = 10;
+	static constexpr size_t kMaxEnemyCount = 18;
 
 	// 最初の敵が倒され、補充が解放されたか
 	bool isReinforcementUnlocked_ = false;
@@ -216,8 +216,8 @@ private:
 	static constexpr float kTutorialGuideY = 100.0f;
 
 	// 操作ガイドの表示サイズ
-	static constexpr float kTutorialGuideWidth = 800.0f;
-	static constexpr float kTutorialGuideHeight = 120.0f;
+	static constexpr float kTutorialGuideWidth = 720.0f;
+	static constexpr float kTutorialGuideHeight = 200.0f;
 
 	// 初期化
 	void InitializeTutorialGuides();
@@ -274,15 +274,15 @@ private:
 	// 表示できる最大桁数
 	static constexpr size_t kMaxScoreDigits = 8;
 
+	// ゲーム中に表示する桁数
+	static constexpr size_t kScoreDisplayDigits = 5;
+
 	// 数字の表示サイズ
 	static constexpr float kScoreDigitWidth = 48.0f;
 	static constexpr float kScoreDigitHeight = 48.0f;
 
 	// 数字同士の間隔
-	static constexpr float kScoreDigitSpacing = 44.0f;
-
-	// 一番右の数字の中心位置
-	static constexpr float kScoreRightX = 1230.0f;
+	static constexpr float kScoreDigitSpacing = 44.0f;	
 
 	// 数字の中心Y座標
 	static constexpr float kScoreTopY = 110.0f;
@@ -291,10 +291,12 @@ private:
 	KamataEngine::Sprite* scoreIconSprite_ = nullptr;
 
 	// スコアアイコンの大きさ
-	static constexpr float kScoreIconSize = 350.0f;
+	static constexpr float kScoreIconWidth = 150.0f;
+	static constexpr float kScoreIconHeight = 50.0f;
 
 	// 数字との間隔
 	static constexpr float kScoreIconMargin = 12.0f;
+
 
 	// 初期化
 	void InitializeScoreDisplay();
@@ -304,6 +306,12 @@ private:
 
 	// 描画
 	void DrawScore();
+
+	// Time・Scoreラベルの共通中心X座標
+	static constexpr float kHudLabelCenterX = 920.0f;
+
+	// ラベル右側にある最初の数字の中心X座標
+	static constexpr float kHudFirstDigitX = 1031.0f;
 
 	/*-------------------- 開始カウントダウン --------------------*/
 	enum class CountdownState {
@@ -355,7 +363,8 @@ private:
 	KamataEngine::Sprite* timeIconSprite_ = nullptr;
 
 	// 残り時間アイコンの大きさ
-	static constexpr float kTimeIconSize = 350.0f;
+	static constexpr float kTimeIconWidth = 150.0f;
+	static constexpr float kTimeIconHeight = 50.0f;
 
 	// 数字との間隔
 	static constexpr float kTimeIconMargin = 12.0f;
@@ -378,9 +387,6 @@ private:
 
 	// 数字同士の間隔
 	static constexpr float kTimeDigitSpacing = 44.0f;
-
-	// 時間表示の右端
-	static constexpr float kTimeRightX = 1230.0f;
 
 	// 時間表示のY座標
 	static constexpr float kTimeTopY = 45.0f;

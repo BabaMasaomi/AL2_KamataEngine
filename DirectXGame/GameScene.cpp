@@ -1420,6 +1420,14 @@ void GameScene::InitializeTutorial() {
 
 /*--------------------  --------------------*/
 void GameScene::UpdateTutorial() {
+
+	// 倒し方や現在の説明段階に関係なく、
+	// チュートリアル敵が2体とも消えたら終了する
+	if (tutorialState_ != TutorialState::kFinished && tutorialLauncherEnemy_ == nullptr && tutorialTargetEnemy_ == nullptr) {
+
+		tutorialState_ = TutorialState::kFinished;
+	}
+
 	switch (tutorialState_) {
 	case TutorialState::kMove:
 		// ステージ中央付近に到着
@@ -1799,7 +1807,7 @@ void GameScene::InitializeScoreDisplay() {
 
 	scoreIconSprite_ = Sprite::Create(
 	    scoreIconTexture, {
-	                          1100.0f,
+	                          kHudLabelCenterX,
 	                          kScoreTopY,
 	                      });
 
@@ -1809,13 +1817,13 @@ void GameScene::InitializeScoreDisplay() {
 	});
 
 	scoreIconSprite_->SetSize({
-	    kScoreIconSize,
-	    kScoreIconSize,
+	    kScoreIconWidth,
+	    kScoreIconHeight,
 	});
 
 	// スコア表示用の桁数分のスプライトを生成
 	for (size_t i = 0; i < kMaxScoreDigits; ++i) {
-		Sprite* digitSprite = Sprite::Create(scoreDigitTextures_[0], {kScoreRightX, kScoreTopY});
+		Sprite* digitSprite = Sprite::Create(scoreDigitTextures_[0], {kHudFirstDigitX, kScoreTopY});
 
 		digitSprite->SetAnchorPoint({0.5f, 0.5f});
 
@@ -1841,9 +1849,14 @@ void GameScene::UpdateScoreDisplay() {
 
 	std::string scoreText = std::to_string(score_);
 
-	// 念のため最大桁数に制限
-	if (scoreText.size() > kMaxScoreDigits) {
-		scoreText = scoreText.substr(scoreText.size() - kMaxScoreDigits);
+	// 5桁を超えた場合は末尾5桁を表示
+	if (scoreText.size() > kScoreDisplayDigits) {
+		scoreText = scoreText.substr(scoreText.size() - kScoreDisplayDigits);
+	}
+
+	// 5桁未満なら先頭を0で埋める
+	if (scoreText.size() < kScoreDisplayDigits) {
+		scoreText.insert(scoreText.begin(), kScoreDisplayDigits - scoreText.size(), '0');
 	}
 
 	scoreDigitCount_ = scoreText.size();
@@ -1859,7 +1872,7 @@ void GameScene::UpdateScoreDisplay() {
 		 * 例：
 		 *   100 なら右から 0、0、1の順に位置を計算
 		 */
-		float positionX = kScoreRightX - static_cast<float>(scoreDigitCount_ - 1 - i) * kScoreDigitSpacing;
+		float positionX = kHudFirstDigitX + static_cast<float>(i) * kScoreDigitSpacing;
 
 		scoreDigitSprites_[i]->SetPosition({
 		    positionX,
@@ -1872,19 +1885,19 @@ void GameScene::UpdateScoreDisplay() {
 		});
 	}
 
-	if (scoreIconSprite_ && scoreDigitCount_ > 0) {
+	//if (scoreIconSprite_ && scoreDigitCount_ > 0) {
 
-		// 一番左の数字の中心位置
-		float leftmostDigitX = kScoreRightX - static_cast<float>(scoreDigitCount_ - 1) * kScoreDigitSpacing;
+	//	// 一番左の数字の中心位置
+	//	float leftmostDigitX = kScoreRightX - static_cast<float>(scoreDigitCount_ - 1) * kScoreDigitSpacing;
 
-		// 数字列のすぐ左へアイコンを置く
-		float iconPositionX = leftmostDigitX - kScoreDigitWidth * 0.5f - kScoreIconMargin - kScoreIconSize * 0.5f;
+	//	// 数字列のすぐ左へアイコンを置く
+	//	float iconPositionX = leftmostDigitX - kScoreDigitWidth * 0.5f - kScoreIconMargin - kScoreIconWidth * 0.5f;
 
-		scoreIconSprite_->SetPosition({
-		    iconPositionX,
-		    kScoreTopY,
-		});
-	}
+	//	scoreIconSprite_->SetPosition({
+	//	    iconPositionX,
+	//	    kScoreTopY,
+	//	});
+	//}
 }
 
 void GameScene::DrawScore() {
@@ -2041,7 +2054,7 @@ void GameScene::ChangeCountdownState(CountdownState state) {
 void GameScene::InitializeTimeDisplay() {
 	for (size_t i = 0; i < timeDigitSprites_.size(); ++i) {
 
-		float positionX = kTimeRightX - static_cast<float>(timeDigitSprites_.size() - 1 - i) * kTimeDigitSpacing;
+		float positionX = kHudFirstDigitX + static_cast<float>(i) * kTimeDigitSpacing;
 
 		timeDigitSprites_[i] = Sprite::Create(
 		    scoreDigitTextures_[0], {
@@ -2062,13 +2075,9 @@ void GameScene::InitializeTimeDisplay() {
 
 	uint32_t timeIconTexture = TextureManager::Load("Time_Bat.png");
 
-	float leftmostTimeDigitX = kTimeRightX - static_cast<float>(timeDigitSprites_.size() - 1) * kTimeDigitSpacing;
-
-	float timeIconX = leftmostTimeDigitX - kTimeDigitWidth * 0.5f - kTimeIconMargin - kTimeIconSize * 0.5f;
-
 	timeIconSprite_ = Sprite::Create(
 	    timeIconTexture, {
-	                         timeIconX,
+	                         kHudLabelCenterX,
 	                         kTimeTopY,
 	                     });
 
@@ -2078,8 +2087,8 @@ void GameScene::InitializeTimeDisplay() {
 	});
 
 	timeIconSprite_->SetSize({
-	    kTimeIconSize,
-	    kTimeIconSize,
+	    kTimeIconWidth,
+	    kTimeIconHeight,
 	});
 
 	displayedRemainingTime_ = -1;
