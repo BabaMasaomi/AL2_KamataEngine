@@ -300,7 +300,7 @@ void ResultScene::DrawScore() {
 
 void ResultScene::InitializeMenu() {
 	const std::array<const char*, 2> textureNames = {
-	    "return_to_title.png",
+	    "go_to_title.png",
 	    "retry.png",
 	};
 

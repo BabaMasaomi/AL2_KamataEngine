@@ -308,7 +308,7 @@ private:
 
 	/*--------------- HP管理 ---------------*/
 	// 最大HP
-	static constexpr int32_t kMaxHp = 5;
+	static constexpr int32_t kMaxHp = 1;
 
 	// 現在HP
 	int32_t hp_ = kMaxHp;

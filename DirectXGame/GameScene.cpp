@@ -77,12 +77,11 @@ GameScene::~GameScene() {
 	}
 
 	// HPの解放
-	for (Sprite* hpDigitSprite : hpDigitSprites_) {
-
-		delete hpDigitSprite;
+	for (Sprite* hpSprite : hpIconSprites_) {
+		delete hpSprite;
 	}
 
-	hpDigitSprites_.clear();
+	hpIconSprites_.clear();
 
 	// アイコン類を解放
 	delete scoreIconSprite_;
@@ -200,6 +199,10 @@ void GameScene::Initialize(bool skipTutorial) {
 	// モデルの読み込み
 	hitEffectModel_ = Model::CreateFromOBJ("particle", true);
 	guardEffectModel_ = Model::CreateFromOBJ("ring", true);
+
+	playerDamageEffectModel_ = Model::CreateFromOBJ("ring_Red", true);
+
+	HitEffect::SetPlayerDamageModel(playerDamageEffectModel_);
 
 	// circle.pngを使用するparticleモデルを残像にも共有
 	Enemy::SetTrailModel(hitEffectModel_);
@@ -702,13 +705,9 @@ void GameScene::Draw() {
 	// チュートリアル操作ガイド
 	DrawTutorialGuide();
 
-	// HPは左上へ表示
-	if (phase_ == Phase::kPlay) {
-		DrawHp();
-	}
-
-	// 本プレイ開始後の右上UI
+	// 本プレイ開始後のUI
 	if (isMainGameStarted_) {
+		DrawHp();
 		DrawRemainingTime();
 		DrawScore();
 	}
@@ -1074,6 +1073,21 @@ void GameScene::CheckAllCollisions() {
 
 			if (player_->CanReceiveDamage()) {
 				player_->OnCollisionEnemy(enemy);
+
+				Vector3 effectPosition = player_->GetWorldPos();
+
+				// プレイヤー中央寄り
+				effectPosition.y += 0.3f;
+
+				// プレイヤーモデルより少しカメラ側
+				effectPosition.z -= 0.4f;
+
+				CreateHitEffect(effectPosition, HitEffectType::kPlayerDamage);
+
+				camaraController_->StartShake(
+				    0.12f, // 揺れる時間
+				    0.28f  // 揺れの強さ
+				);
 			}
 		}
 	}
@@ -1787,33 +1801,41 @@ void GameScene::DrawTutorialGuide() {
 	}
 }
 
+
 void GameScene::InitializeHpDisplay() {
-	hpDigitSprites_.clear();
+	hpIconSprites_.clear();
 
-	for (size_t i = 0; i < kMaxHpDigits; ++i) {
-
-		float positionX = kHpLeftX + static_cast<float>(i) * kHpDigitSpacing;
-
-		Sprite* hpDigitSprite = Sprite::Create(
-		    scoreDigitTextures_[0], {
-		                                positionX,
-		                                kHpTopY,
-		                            });
-
-		hpDigitSprite->SetAnchorPoint({
-		    0.5f,
-		    0.5f,
-		});
-
-		hpDigitSprite->SetSize({
-		    kHpDigitWidth,
-		    kHpDigitHeight,
-		});
-
-		hpDigitSprites_.push_back(hpDigitSprite);
+	if (!player_) {
+		return;
 	}
 
-	displayedHp_ = -1;
+	uint32_t hpTexture = TextureManager::Load("CapPlayerHP.png");
+
+	const int32_t maxHp = player_->GetMaxHp();
+
+	for (int32_t i = 0; i < maxHp; ++i) {
+		float positionX = kHpLeftX + static_cast<float>(i) * kHpIconSpacing;
+
+		Sprite* hpSprite = Sprite::Create(
+		    hpTexture, {
+		                   positionX,
+		                   kHpTopY,
+		               });
+
+		hpSprite->SetAnchorPoint({
+		    0.5f,
+		    0.5f,
+		});
+
+		// 元画像の180:150の比率を維持
+		hpSprite->SetSize({
+		    kHpIconWidth,
+		    kHpIconHeight,
+		});
+
+		hpIconSprites_.push_back(hpSprite);
+	}
+
 	UpdateHpDisplay();
 }
 
@@ -1823,47 +1845,31 @@ void GameScene::UpdateHpDisplay() {
 		return;
 	}
 
-	int32_t currentHp = (std::max)(player_->GetHp(), 0);
+	const int32_t currentHp = (std::max)(player_->GetHp(), 0);
 
-	if (currentHp == displayedHp_) {
-		return;
-	}
+	for (size_t i = 0; i < hpIconSprites_.size(); ++i) {
+		if (!hpIconSprites_[i]) {
+			continue;
+		}
 
-	displayedHp_ = currentHp;
+		const bool isRemaining = static_cast<int32_t>(i) < currentHp;
 
-	std::string hpText = std::to_string(currentHp);
+		const float alpha = isRemaining ? kHpActiveAlpha : kHpLostAlpha;
 
-	if (hpText.size() > kMaxHpDigits) {
-		hpText = hpText.substr(hpText.size() - kMaxHpDigits);
-	}
-
-	hpDigitCount_ = hpText.size();
-
-	for (size_t i = 0; i < hpDigitCount_; ++i) {
-
-		uint32_t digit = static_cast<uint32_t>(hpText[i] - '0');
-
-		hpDigitSprites_[i]->SetTextureHandle(scoreDigitTextures_[digit]);
-
-		float positionX = kHpLeftX + static_cast<float>(i) * kHpDigitSpacing;
-
-		hpDigitSprites_[i]->SetPosition({
-		    positionX,
-		    kHpTopY,
+		hpIconSprites_[i]->SetColor({
+		    1.0f,
+		    1.0f,
+		    1.0f,
+		    alpha,
 		});
 	}
 }
 
 //-------------------- HP表示の描画 --------------------//
 void GameScene::DrawHp() {
-	for (size_t i = 0; i < hpDigitCount_; ++i) {
-
-		if (i >= hpDigitSprites_.size()) {
-			break;
-		}
-
-		if (hpDigitSprites_[i]) {
-			hpDigitSprites_[i]->Draw();
+	for (Sprite* hpSprite : hpIconSprites_) {
+		if (hpSprite) {
+			hpSprite->Draw();
 		}
 	}
 }

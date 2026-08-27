@@ -9,6 +9,7 @@ using namespace KamataEngine;
 Model* HitEffect::model_ = nullptr;
 Model* HitEffect::hitModel_ = nullptr;
 Model* HitEffect::guardModel_ = nullptr;
+Model* HitEffect::playerDamageModel_ = nullptr;
 Camera* HitEffect::camera_ = nullptr;
 
 /// <summary>
@@ -31,6 +32,10 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 
 	case HitEffectType::kChargedHit:
 		startAlpha_ = kChargedHitAlpha;
+		break;
+
+	case HitEffectType::kPlayerDamage:
+		startAlpha_ = kPlayerDamageAlpha;
 		break;
 
 	default:
@@ -85,6 +90,17 @@ void HitEffect::Initialise(Vector3 pos, HitEffectType type) {
 		circleWorldTransform_.scale_ = {
 		    kBounceHorizontalStartScaleX,
 		    kBounceHorizontalStartScaleY,
+		    1.0f,
+		};
+
+		behavior_ = HitEffectBehavior::kExpand;
+		behaviorRequest_ = HitEffectBehavior::kExpand;
+
+	} else if (effectType_ == HitEffectType::kPlayerDamage) {
+
+		circleWorldTransform_.scale_ = {
+		    kPlayerDamageStartScale,
+		    kPlayerDamageStartScale,
 		    1.0f,
 		};
 
@@ -219,6 +235,9 @@ void HitEffect::BehaviorExpandUpdate() {
 	} else if (effectType_ == HitEffectType::kBounceWall || effectType_ == HitEffectType::kBounceHorizontal) {
 
 		expandTime = kBounceExpandTime;
+	} else if (effectType_ == HitEffectType::kPlayerDamage) {
+
+		expandTime = kPlayerDamageExpandTime;
 	}
 
 	expandTimer_ += 1.0f / 60.0f;
@@ -259,6 +278,16 @@ void HitEffect::BehaviorExpandUpdate() {
 
 		circleWorldTransform_.scale_ = {scaleX, scaleY, 1.0f};
 
+	} else if (effectType_ == HitEffectType::kPlayerDamage) {
+
+		float scale = EaseOut(kPlayerDamageStartScale, kPlayerDamageEndScale, t);
+
+		circleWorldTransform_.scale_ = {
+		    scale,
+		    scale,
+		    1.0f,
+		};
+
 	} else {
 
 		float scale = EaseOut(0.5f, 5.0f, t);
@@ -295,6 +324,10 @@ void HitEffect::BehaviorFadeOutUpdate() {
 	} else if (effectType_ == HitEffectType::kBounceWall || effectType_ == HitEffectType::kBounceHorizontal) {
 
 		fadeTime = kBounceFadeTime;
+
+	} else if (effectType_ == HitEffectType::kPlayerDamage) {
+
+		fadeTime = kPlayerDamageFadeTime;
 
 	} else {
 
@@ -342,8 +375,12 @@ void HitEffect::BehaviorFadeOutUpdate() {
 /// 描画処理
 /// </summary>
 void HitEffect::Draw() {
-	// 溜め攻撃も通常ヒットと同じモデルを使う
-	if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kNormalHit || effectType_ == HitEffectType::kChargedHit) {
+	if (effectType_ == HitEffectType::kPlayerDamage) {
+
+		model_ = playerDamageModel_;
+
+	} else if (effectType_ == HitEffectType::kHit || effectType_ == HitEffectType::kNormalHit || effectType_ == HitEffectType::kChargedHit) {
+		// 溜め攻撃も通常ヒットと同じモデルを使う
 
 		model_ = hitModel_;
 

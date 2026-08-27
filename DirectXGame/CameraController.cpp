@@ -2,6 +2,7 @@
 #include "CameraController.h"
 #include "Player.h"
 #include <algorithm>
+#include <cmath>
 
 // KamataEngine::を毎回入力しなくてもいい様にする
 using namespace KamataEngine;
@@ -12,10 +13,14 @@ void CameraController::Initialize(Camera* camera) {
 }
 
 void CameraController::Update() {
-	// 安全対策
-	if (!target_) {
+	if (!target_ || !camera_) {
 		return;
 	}
+
+	// 前フレームで加えた揺れを取り除く
+	camera_->translation_.x -= shakeOffset_.x;
+	camera_->translation_.y -= shakeOffset_.y;
+	shakeOffset_ = {};
 
 	switch (mode_) {
 
@@ -33,6 +38,26 @@ void CameraController::Update() {
 	camera_->translation_.x = std::min(camera_->translation_.x, movableArea_.right);
 	camera_->translation_.y = std::max(camera_->translation_.y, movableArea_.bottom);
 	camera_->translation_.y = std::min(camera_->translation_.y, movableArea_.top);
+
+	// 画面揺れの更新
+	if (shakeTimer_ > 0.0f) {
+		shakeTimer_ = std::max(0.0f, shakeTimer_ - 1.0f / 60.0f);
+
+		float ratio = 0.0f;
+
+		if (shakeDuration_ > 0.0f) {
+			ratio = shakeTimer_ / shakeDuration_;
+		}
+
+		float amplitude = shakePower_ * ratio;
+		float elapsed = shakeDuration_ - shakeTimer_;
+
+		shakeOffset_.x = std::sin(elapsed * 130.0f) * amplitude;
+		shakeOffset_.y = std::cos(elapsed * 173.0f) * amplitude * 0.65f;
+
+		camera_->translation_.x += shakeOffset_.x;
+		camera_->translation_.y += shakeOffset_.y;
+	}
 
 	// 行列を更新する
 	camera_->UpdateMatrix();
@@ -61,9 +86,7 @@ void CameraController::UpdateFollow() {
 }
 
 // 強制スクロールの更新
-void CameraController::UpdateForcedScroll() {
-	camera_->translation_.x += forceScrollSpeed_;
-}
+void CameraController::UpdateForcedScroll() { camera_->translation_.x += forceScrollSpeed_; }
 
 void CameraController::Reset() {
 	if (!target_ || !camera_) {
@@ -80,4 +103,17 @@ void CameraController::Reset() {
 	camera_->translation_.x = std::clamp(camera_->translation_.x, movableArea_.left, movableArea_.right);
 	camera_->translation_.y = std::clamp(camera_->translation_.y, movableArea_.bottom, movableArea_.top);
 	camera_->UpdateMatrix();
+
+	// 揺れのリセット
+	shakeTimer_ = 0.0f;
+	shakeDuration_ = 0.0f;
+	shakePower_ = 0.0f;
+	shakeOffset_ = {};
+}
+
+// 画面揺れを開始
+void CameraController::StartShake(float duration, float power) {
+	shakeDuration_ = std::max(duration, 0.0f);
+	shakeTimer_ = shakeDuration_;
+	shakePower_ = std::max(power, 0.0f);
 }

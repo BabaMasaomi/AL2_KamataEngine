@@ -11,6 +11,8 @@ enum class HitEffectType {
 
 	kBounceWall,       // 画面の左右端
 	kBounceHorizontal, // 画面の上下端
+
+	kPlayerDamage, // プレイヤー被ダメージ
 };
 
 // 死亡演出の管理
@@ -43,6 +45,7 @@ public:
 	static void SetHitModel(KamataEngine::Model* model) { hitModel_ = model; }
 	static void SetGuardModel(KamataEngine::Model* model) { guardModel_ = model; }
 	static void SetCamera(KamataEngine::Camera* camera) { camera_ = camera; }
+	static void SetPlayerDamageModel(KamataEngine::Model* model) { playerDamageModel_ = model; }
 
 private:
 	// Translateクラス内の関数を使える様にする
@@ -76,6 +79,15 @@ private:
 
 	// 消失フラグ
 	bool isDead_ = false;
+
+	/*--------------- プレイヤー被ダメージ用 ---------------*/
+	static KamataEngine::Model* playerDamageModel_;
+
+	static constexpr float kPlayerDamageStartScale = 0.8f;
+	static constexpr float kPlayerDamageEndScale = 4.6f;
+	static constexpr float kPlayerDamageExpandTime = 0.08f;
+	static constexpr float kPlayerDamageFadeTime = 0.18f;
+	static constexpr float kPlayerDamageAlpha = 0.85f;
 
 	/*--------------- 通常攻撃命中用 ---------------*/
 	// 円の初期サイズ

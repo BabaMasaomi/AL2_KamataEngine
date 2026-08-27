@@ -146,6 +146,9 @@ private:
 	// チャージ収束エフェクト
 	ChargeEffect* chargeEffect_ = nullptr;
 
+	// プレイヤー被ダメージ用赤リング
+	KamataEngine::Model* playerDamageEffectModel_ = nullptr;
+
 	/*--------------- ヒットストップ ---------------*/
 	// ヒットストップ開始までの残り時間
 	float hitStopDelayTimer_ = 0.0f;
@@ -229,36 +232,26 @@ private:
 	void DrawTutorialGuide();
 
 	/*-------------------- HP表示 --------------------*/
-	// HPの数字スプライト
-	std::vector<KamataEngine::Sprite*> hpDigitSprites_;
+	// HPアイコンのスプライト
+	std::vector<KamataEngine::Sprite*> hpIconSprites_;
 
-	// 現在表示しているHPの桁数
-	size_t hpDigitCount_ = 1;
+	// HPアイコンの大きさ
+	static constexpr float kHpIconWidth = 72.0f;
+	static constexpr float kHpIconHeight = 60.0f;
 
-	// 前回表示したHP
-	int32_t displayedHp_ = -1;
+	// アイコン同士の間隔
+	static constexpr float kHpIconSpacing = 66.0f;
 
-	// 将来の複数桁化に備えた最大桁数
-	static constexpr size_t kMaxHpDigits = 3;
+	// 左上の先頭位置
+	static constexpr float kHpLeftX = 55.0f;
+	static constexpr float kHpTopY = 55.0f;
 
-	// HP数字の大きさ
-	static constexpr float kHpDigitWidth = 48.0f;
-	static constexpr float kHpDigitHeight = 48.0f;
+	// 残りHPと失ったHPの透明度
+	static constexpr float kHpActiveAlpha = 1.0f;
+	static constexpr float kHpLostAlpha = 0.18f;
 
-	// 数字同士の間隔
-	static constexpr float kHpDigitSpacing = 44.0f;
-
-	// HP表示の左端
-	static constexpr float kHpLeftX = 50.0f;
-	static constexpr float kHpTopY = 50.0f;
-
-	// 初期化
 	void InitializeHpDisplay();
-
-	// 更新
 	void UpdateHpDisplay();
-
-	// 描画
 	void DrawHp();
 
 	/*-------------------- スコア表示 --------------------*/

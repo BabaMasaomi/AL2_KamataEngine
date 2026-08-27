@@ -38,6 +38,9 @@ public:
 	/// </summary>
 	void Reset();
 
+	// 画面揺れを開始
+	void StartShake(float duration, float power);
+
 	// セッター
 	// 追従対象の位置
 	void SetTarget(Player* target) { target_ = target; }
@@ -73,6 +76,13 @@ private:
 
 	// 追従対象の各方向へのカメラ移動範囲(-left,+right,-bottom,+topの順)
 	static inline const Rect cameraMovementMargin = {-100.0f, 100.0f, -100.0f, 100.0f};
+
+	// 画面揺れ
+	float shakeTimer_ = 0.0f;
+	float shakeDuration_ = 0.0f;
+	float shakePower_ = 0.0f;
+
+	KamataEngine::Vector3 shakeOffset_ = {};
 
 	/*--------------- モード管理 ---------------*/
 	Mode mode_ = Mode::kFollow;
