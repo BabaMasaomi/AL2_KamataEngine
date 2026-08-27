@@ -2,6 +2,7 @@
 #include "CameraController.h"
 #include "KamataEngine.h"
 #include "Player.h"
+#include "Skydome.h"
 #include "Fade.h"
 #include "Transform.h"
 #include <array>
@@ -62,7 +63,7 @@ private:
 	KamataEngine::Sprite* creditBackdropSprite_ = nullptr;
 	KamataEngine::Sprite* creditPlaceholderSprite_ = nullptr;
 
-	static constexpr float kMenuCenterX = 640.0f;
+	static constexpr float kMenuCenterX = 880.0f;
 	// メニューの開始位置
 	static constexpr float kMenuStartY = 380.0f;
 	// メニュー同士の間隔
@@ -94,11 +95,44 @@ private:
 	// プレイヤーの3Dモデル
 	KamataEngine::Model* modelPlayer_ = nullptr;
 
+	// バットの3Dモデル
+	KamataEngine::Model* modelBat_ = nullptr;
+
 	// プレイヤーのワールドトランスフォーム
 	KamataEngine::WorldTransform worldTransformPlayer_;
 
-	// プレイヤー
-	Player* player_ = nullptr;
+	// バットのワールドトランスフォーム
+	KamataEngine::WorldTransform worldTransformBat_;
+
+	// ゲーム開始時の高速回転中か
+	bool isPlayStartAnimation_ = false;
+
+	// 現在の回転速度
+	float playerRotationSpeed_ = 0.0f;
+
+	// 通常時の回転速度
+	static constexpr float kPlayerIdleRotationSpeed = 0.008f;
+
+	// ゲーム開始時の回転速度
+	static constexpr float kPlayerStartRotationSpeed = 0.45f;
+
+	// 回転速度の補間率
+	static constexpr float kPlayerRotationLerpRate = 0.14f;
+
+	// プレイヤーから見たバットの手元位置
+	static constexpr float kBatHandOffsetX = 2.2f;
+	static constexpr float kBatHandOffsetY = 0.3f;
+	static constexpr float kBatHandOffsetZ = -0.4f;
+
+	/*-------------------- 天球 --------------------*/
+	// 天球モデル
+	KamataEngine::Model* modelSkydome_ = nullptr;
+
+	// 天球本体
+	Skydome* skydome_ = nullptr;
+
+	// 天球の回転速度
+	static constexpr float kSkydomeRotationSpeed = 0.0015f;
 
 	/*-------------------- カメラ --------------------*/
 	// カメラ

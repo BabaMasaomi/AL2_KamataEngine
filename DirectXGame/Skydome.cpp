@@ -32,11 +32,13 @@ void Skydome::Initialize(Model* model, Camera* camera) {
 /// 天球の更新
 /// </summary>
 void Skydome::Update() {
-	// 天球のscaleをクソデカくすること
+	// カメラを覆う大きさ
 	worldTransformSkydome_.scale_ = {100.0f, 100.0f, 100.0f};
 
-	// 行列を定数バッファに転送
-	// worldTransformSkydome_.translation_ = cameraSkydome_->translation_;	// カメラ位置の移動に合わせて天球が動く様になるらしい(メモ)
+	// 設定された速度でゆっくり回転
+	worldTransformSkydome_.rotation_.y += rotationSpeed_;
+
+	// 通常の天球処理と同じ方法で行列を転送
 	worldTransformSkydome_.TransferMatrix();
 }
 

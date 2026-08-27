@@ -24,6 +24,9 @@ public:
 	/// </summary>
 	void Draw();
 
+	// 天球の回転速度を設定
+	void SetRotationSpeed(float speed) { rotationSpeed_ = speed; }
+
 private:
 	// カメラ
 	KamataEngine::Camera* cameraSkydome_ = nullptr;
@@ -33,4 +36,7 @@ private:
 
 	// モデル
 	KamataEngine::Model* modelSkydome_ = nullptr;
+
+	// 1フレームごとのY回転量
+	float rotationSpeed_ = 0.0f;
 };

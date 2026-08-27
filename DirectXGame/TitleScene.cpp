@@ -7,17 +7,35 @@ using namespace KamataEngine;
 /*-------------------- コンストラクタ&デストラクタ --------------------*/
 TitleScene::TitleScene() {}
 TitleScene::~TitleScene() {
-	delete modelTitle_;  // タイトルフォントの3Dモデルの解放
-	delete modelPlayer_; // プレイヤーの3Dモデルの解放
+	delete modelTitle_;
+	modelTitle_ = nullptr;
+
+	delete modelPlayer_;
+	modelPlayer_ = nullptr;
+
+	delete modelBat_;
+	modelBat_ = nullptr;
+
+	delete skydome_;
+	skydome_ = nullptr;
+
+	delete modelSkydome_;
+	modelSkydome_ = nullptr;
+	;
+
 	for (Sprite*& sprite : menuSprites_) {
 		delete sprite;
 		sprite = nullptr;
 	}
+
 	delete creditBackdropSprite_;
 	creditBackdropSprite_ = nullptr;
+
 	delete creditPlaceholderSprite_;
 	creditPlaceholderSprite_ = nullptr;
-	delete fade_;        // フェードの解放
+
+	delete fade_;
+	fade_ = nullptr;
 }
 
 /*-------------------- 初期化 --------------------*/
@@ -32,17 +50,54 @@ void TitleScene::Initialize() {
 	camera_.farZ = 550.0f;
 	camera_.Initialize();
 
+	/*========== 天球 ==========*/
+	modelSkydome_ = Model::CreateFromOBJ("skydome", true);
+
+	skydome_ = new Skydome();
+
+	skydome_->Initialize(modelSkydome_, &camera_);
+	skydome_->SetRotationSpeed(kSkydomeRotationSpeed);
+
+	// Initialize直後から正しい行列を持たせる
+	skydome_->Update();
+
 	// タイトル用フォントのモデル
-	modelTitle_ = Model::CreateFromOBJ("titleFont", true); // タイトルフォントの3Dモデルを生成
+	modelTitle_ = Model::CreateFromOBJ("Ttile_Bat", true); // タイトルフォントの3Dモデルを生成
 	worldTransformTitle_.Initialize();                     // タイトルのワールドトランスフォームの初期化
-	worldTransformTitle_.translation_ = {0.0f, 5.0f, 0.0f};
+	worldTransformTitle_.translation_ = {-3.0f, 7.0f, 0.0f};
 	worldTransformTitle_.scale_ = {2.0f, 2.0f, 2.0f};
 
-	// プレイヤーのモデル
-	modelPlayer_ = Model::CreateFromOBJ("player", true); // プレイヤーの3Dモデルを生成
-	worldTransformPlayer_.Initialize();                  // プレイヤーのワールドトランスフォームの初期化
-	worldTransformPlayer_.translation_ = {0.0f, -10.0f, 0.0f};
-	worldTransformPlayer_.scale_ = {6.0f, 6.0f, 6.0f};
+	/*========== プレイヤー ==========*/
+	modelPlayer_ = Model::CreateFromOBJ("CapPlayer", true);
+
+	worldTransformPlayer_.Initialize();
+
+	worldTransformPlayer_.translation_ = {-9.0f, -7.0f, 0.0f};
+	worldTransformPlayer_.scale_ = {
+	    7.0f,
+	    7.0f,
+	    7.0f,
+	};
+	// 最初は正面寄り
+	worldTransformPlayer_.rotation_ = {0.0f, std::numbers::pi_v<float> / 2.0f, 0.0f};
+
+	/*========== バット ==========*/
+	modelBat_ = Model::CreateFromOBJ("Bat", true);
+
+	worldTransformBat_.Initialize();
+
+	worldTransformBat_.scale_ = {
+	    5.25f,
+	    5.25f,
+	    5.25f,
+	};
+
+	// バット先端を上げて構える
+	worldTransformBat_.rotation_.x = -115.0f * std::numbers::pi_v<float> / 180.0f;
+	worldTransformBat_.rotation_.z = -105.0f * std::numbers::pi_v<float> / 180.0f;
+
+	isPlayStartAnimation_ = false;
+	playerRotationSpeed_ = kPlayerIdleRotationSpeed;
 
 	InitializeMenu();
 
@@ -70,7 +125,6 @@ void TitleScene::Update() {
 		if (fade_->IsFinished()) {
 			finished_ = true;
 		}
-		worldTransformPlayer_.rotation_.y += 1.0f;
 		break;
 
 	default:
@@ -82,12 +136,45 @@ void TitleScene::Update() {
 	t += 0.03f;
 	worldTransformTitle_.translation_.y = 5.0f + sinf(t) * 0.5f;
 
-	// プレイヤーを回す
-	worldTransformPlayer_.rotation_.y += 0.02f;
+	/*========== プレイヤーの回転 ==========*/
+	float targetRotationSpeed = isPlayStartAnimation_ ? kPlayerStartRotationSpeed : kPlayerIdleRotationSpeed;
+
+	// 急に速度が切り替わらないよう補間
+	playerRotationSpeed_ += (targetRotationSpeed - playerRotationSpeed_) * kPlayerRotationLerpRate;
+
+	worldTransformPlayer_.rotation_.y += playerRotationSpeed_;
+
+	/*========== バットの手元位置を追従 ==========*/
+	float rotationY = worldTransformPlayer_.rotation_.y;
+
+	// プレイヤーを基準にした手元のローカル位置
+	float localX = kBatHandOffsetX;
+	float localZ = kBatHandOffsetZ;
+
+	// プレイヤーのY回転に合わせて手元位置を回す
+	float rotatedX = localX * std::cos(rotationY) + localZ * std::sin(rotationY);
+
+	float rotatedZ = -localX * std::sin(rotationY) + localZ * std::cos(rotationY);
+
+	worldTransformBat_.translation_ = {
+	    worldTransformPlayer_.translation_.x + rotatedX,
+	    worldTransformPlayer_.translation_.y + kBatHandOffsetY,
+	    worldTransformPlayer_.translation_.z + rotatedZ,
+	};
+
+	// プレイヤーと同じ向きへ回転
+	worldTransformBat_.rotation_.y = rotationY;
+
+	/*========== 天球の回転 ==========*/
+	if (skydome_) {
+		skydome_->Update();
+	}
 
 	// 更新を反映
 	transform_.worldMatrixUpdate(worldTransformTitle_);
 	transform_.worldMatrixUpdate(worldTransformPlayer_);
+	transform_.worldMatrixUpdate(worldTransformBat_);
+
 	camera_.UpdateMatrix();
 
 	// フェードを更新
@@ -98,9 +185,19 @@ void TitleScene::Update() {
 void TitleScene::Draw() {
 	Model::PreDraw();
 
-	// モデルを描画
-	modelTitle_->Draw(worldTransformTitle_, camera_);
+	// 最も奥
+	if (skydome_) {
+		skydome_->Draw();
+	}
+
+	// プレイヤー
 	modelPlayer_->Draw(worldTransformPlayer_, camera_);
+
+	// プレイヤーが持っているバット
+	modelBat_->Draw(worldTransformBat_, camera_);
+
+	// タイトル文字
+	modelTitle_->Draw(worldTransformTitle_, camera_);
 
 	Model::PostDraw();
 
@@ -108,7 +205,6 @@ void TitleScene::Draw() {
 	DrawMenu();
 	Sprite::PostDraw();
 
-	// UIより手前へフェードを描画
 	fade_->Draw();
 }
 
@@ -173,16 +269,28 @@ void TitleScene::UpdateMenu() {
 
 	switch (static_cast<MenuItem>(selectedMenuIndex_)) {
 	case MenuItem::kPlay:
+
 		action_ = Action::kPlay;
+
+		// ゲーム開始時だけ高速回転
+		isPlayStartAnimation_ = true;
+
 		fade_->Start(Fade::Status::FadeOut, 1.0f);
+
 		phase_ = Phase::kFadeOut;
 		break;
 	case MenuItem::kCredit:
 		isCreditVisible_ = true;
 		break;
 	case MenuItem::kQuit:
+
 		action_ = Action::kQuit;
+
+		// 終了時は高速回転させない
+		isPlayStartAnimation_ = false;
+
 		fade_->Start(Fade::Status::FadeOut, 1.0f);
+
 		phase_ = Phase::kFadeOut;
 		break;
 	case MenuItem::kCount:
