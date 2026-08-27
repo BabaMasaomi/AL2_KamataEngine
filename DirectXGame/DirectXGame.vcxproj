@@ -167,6 +167,7 @@
     <ClCompile Include="MapChipField.cpp" />
     <ClCompile Include="Math.cpp" />
     <ClCompile Include="Player.cpp" />
+    <ClCompile Include="PlayerDeathEffect.cpp" />
     <ClCompile Include="ResultScene.cpp" />
     <ClCompile Include="ShieldEnemy.cpp" />
     <ClCompile Include="Skydome.cpp" />
@@ -285,6 +286,7 @@
     <ClInclude Include="MapChipField.h" />
     <ClInclude Include="Math.h" />
     <ClInclude Include="Player.h" />
+    <ClInclude Include="PlayerDeathEffect.h" />
     <ClInclude Include="ResultScene.h" />
     <ClInclude Include="ShieldEnemy.h" />
     <ClInclude Include="Skydome.h" />

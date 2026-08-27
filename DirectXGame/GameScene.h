@@ -6,6 +6,7 @@
 #include "GameResult.h"
 #include "HitEffect.h"
 #include "ChargeEffect.h"
+#include "PlayerDeathEffect.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Player.h"
@@ -174,14 +175,11 @@ private:
 	bool isDebugCameraActive_ = false;
 
 	/*-------------------- プレイヤー死亡演出 --------------------*/
-	// 死亡時のヒットエフェクトを生成したか
+	// 専用の光エフェクト
+	PlayerDeathEffect* playerDeathEffect_ = nullptr;
+
+	// 二重開始防止
 	bool hasCreatedPlayerDeathEffect_ = false;
-
-	// エフェクト表示後の待ち時間
-	float playerDeathEffectTimer_ = 0.0f;
-
-	// フェード開始までエフェクトを見せる時間
-	static constexpr float kPlayerDeathEffectWaitTime = 0.25f;
 
 	/*-------------------- スコア --------------------*/
 	// 現在のスコア

@@ -29,6 +29,10 @@ GameScene::~GameScene() {
 	delete chargeEffect_;
 	chargeEffect_ = nullptr;
 
+	// プレイヤー死亡演出の解放
+	delete playerDeathEffect_;
+	playerDeathEffect_ = nullptr;
+
 	// 複数ブロックの解放処理
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
@@ -208,6 +212,10 @@ void GameScene::Initialize(bool skipTutorial) {
 	chargeEffect_ = new ChargeEffect();
 	chargeEffect_->Initialize(guardEffectModel_, &camera_);
 
+	// プレイヤー死亡演出の生成
+	playerDeathEffect_ = new PlayerDeathEffect();
+	playerDeathEffect_->Initialize(hitEffectModel_, &camera_);
+
 	/*--------------- カメラ ---------------*/
 	// カメラコントローラの生成
 	camaraController_ = new CameraController();
@@ -231,7 +239,6 @@ void GameScene::Initialize(bool skipTutorial) {
 
 	/*-------------------- プレイヤー死亡演出 --------------------*/
 	hasCreatedPlayerDeathEffect_ = false;
-	playerDeathEffectTimer_ = 0.0f;
 
 	/*-------------------- ゲームの終了判定 --------------------*/
 	finished_ = false;
@@ -537,22 +544,9 @@ void GameScene::Update() {
 		// プレイヤー本体の死亡演出を更新
 		player_->UpdateDeathAnimation();
 
-		if (player_->IsDeathAnimationFinished() && !hasCreatedPlayerDeathEffect_) {
-
-			hasCreatedPlayerDeathEffect_ = true;
-
-			// 敵の死亡時に使っているエフェクトを流用
-			CreateHitEffect(player_->GetWorldPos(), HitEffectType::kHit);
-
-			playerDeathEffectTimer_ = kPlayerDeathEffectWaitTime;
-		}
-
-		/*========== 死亡エフェクト表示時間 ==========*/
-		if (hasCreatedPlayerDeathEffect_ && playerDeathEffectTimer_ > 0.0f) {
-
-			playerDeathEffectTimer_ -= deltaTime;
-
-			playerDeathEffectTimer_ = (std::max)(playerDeathEffectTimer_, 0.0f);
+		// プレイヤー専用の光エフェクト
+		if (playerDeathEffect_) {
+			playerDeathEffect_->Update();
 		}
 
 		// 敵の更新
@@ -689,6 +683,11 @@ void GameScene::Draw() {
 
 	// プレイヤーの描画
 	player_->Draw();
+
+	// プレイヤー専用の死亡光
+	if (playerDeathEffect_) {
+		playerDeathEffect_->Draw();
+	}
 
 	// 溜め攻撃のエフェクトの描画
 	if (chargeEffect_) {
@@ -1597,10 +1596,16 @@ void GameScene::ChangePhase() {
 
 			hasCreatedPlayerDeathEffect_ = false;
 
-			playerDeathEffectTimer_ = 0.0f;
-
-			// プレイヤー本体の死亡演出を開始
+			// プレイヤー本体の回転・縮小を開始
 			player_->StartDeathAnimation();
+
+			// StartDeathAnimation()でプレイヤーが上へ移動した後の
+			// 座標から光を散らす
+			if (playerDeathEffect_) {
+				playerDeathEffect_->Start(player_->GetWorldPos());
+
+				hasCreatedPlayerDeathEffect_ = true;
+			}
 
 		} else if (playTimer_ >= kClearTime) {
 			gameResult_ = GameResult::kClear;
@@ -1611,13 +1616,17 @@ void GameScene::ChangePhase() {
 
 		break;
 
-	case GameScene::Phase::kDeath:
-		if (player_->IsDeathAnimationFinished() && hasCreatedPlayerDeathEffect_ && playerDeathEffectTimer_ <= 0.0f) {
+	case GameScene::Phase::kDeath: {
+		bool isPlayerDeathEffectFinished = !playerDeathEffect_ || playerDeathEffect_->IsFinished();
+
+		if (player_->IsDeathAnimationFinished() && hasCreatedPlayerDeathEffect_ && isPlayerDeathEffectFinished) {
 
 			gameFinishTimer_ = 0.0f;
 			phase_ = GameScene::Phase::kFinish;
 		}
+
 		break;
+	}
 
 	case GameScene::Phase::kFinish:
 		if (gameFinishTimer_ >= kGameFinishDisplayTime) {
