@@ -278,8 +278,8 @@ private:
 	static inline const float kMoveSpeed = 0.04f;
 
 	// 敵の当たり判定サイズ
-	static inline const float kWidth = 1.6f;
-	static inline const float kHeight = 1.6f;
+	static constexpr float kWidth = 1.6f;
+	static constexpr float kHeight = 1.6f;
 
 	// アニメーション用変数
 	// 最初の角度(度)
@@ -552,6 +552,10 @@ private:
 
 	// 画面端との間に取る余白
 	static constexpr float kScreenBounceMargin = 0.05f;
+
+	// 吹き飛び・死亡演出を地形より手前に表示する
+	// 敵半分～1体分の中間
+	static constexpr float kBlownAwayFrontOffset = kWidth * 0.75f;
 
 	/*--------------- 吹っ飛び攻撃 ---------------*/
 	// 現在の飛行区間で敵へ命中できるか

@@ -1789,6 +1789,8 @@ void Enemy::BehaviorBlownAwayInitialize() {
 	isHitKnockBack_ = false;
 	hitKnockBackTimer_ = 0.0f;
 
+	// 地形より手前の演出レイヤーへ移動
+	worldTransform_.translation_.z = -kBlownAwayFrontOffset;
 	velocity_ = {};
 
 	// 正面から斜め上までのランダム角度
@@ -1878,103 +1880,103 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	/*========== X方向の移動・壁判定 ==========*/
 	float nextX = worldTransform_.translation_.x + blownAwayVelocity_.x;
 
-	if (blownAwayVelocity_.x > 0.0f) {
-		// 右へ移動している場合、右上と右下を確認
-		Vector3 rightTop = {
-		    nextX + halfWidth,
-		    worldTransform_.translation_.y + halfHeight - kBlownAwayMargin,
-		    0.0f,
-		};
+	//if (blownAwayVelocity_.x > 0.0f) {
+	//	// 右へ移動している場合、右上と右下を確認
+	//	Vector3 rightTop = {
+	//	    nextX + halfWidth,
+	//	    worldTransform_.translation_.y + halfHeight - kBlownAwayMargin,
+	//	    0.0f,
+	//	};
 
-		Vector3 rightBottom = {
-		    nextX + halfWidth,
-		    worldTransform_.translation_.y - halfHeight + kBlownAwayMargin,
-		    0.0f,
-		};
+	//	Vector3 rightBottom = {
+	//	    nextX + halfWidth,
+	//	    worldTransform_.translation_.y - halfHeight + kBlownAwayMargin,
+	//	    0.0f,
+	//	};
 
-		Vector3 checkPositions[] = {
-		    rightTop,
-		    rightBottom,
-		};
+	//	Vector3 checkPositions[] = {
+	//	    rightTop,
+	//	    rightBottom,
+	//	};
 
-		bool hitRight = false;
-		float resolvedX = nextX;
+	//	bool hitRight = false;
+	//	float resolvedX = nextX;
 
-		for (const Vector3& position : checkPositions) {
+	//	for (const Vector3& position : checkPositions) {
 
-			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
 
-			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-				continue;
-			}
+	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+	//			continue;
+	//		}
 
-			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
 
-			// 敵の右端が壁の左端へ合う位置
-			float candidateX = rect.left - halfWidth - kBlownAwayMargin;
+	//		// 敵の右端が壁の左端へ合う位置
+	//		float candidateX = rect.left - halfWidth - kBlownAwayMargin;
 
-			resolvedX = std::min(resolvedX, candidateX);
+	//		resolvedX = std::min(resolvedX, candidateX);
 
-			hitRight = true;
-		}
+	//		hitRight = true;
+	//	}
 
-		if (hitRight) {
-			nextX = resolvedX;
+	//	if (hitRight) {
+	//		nextX = resolvedX;
 
-			blownAwayVelocity_.x = -blownAwayVelocity_.x;
+	//		blownAwayVelocity_.x = -blownAwayVelocity_.x;
 
-			hitX = true;
-			bouncedThisFrame = true;
-		}
-	} else if (blownAwayVelocity_.x < 0.0f) {
-		// 左へ移動している場合、左上と左下を確認
-		Vector3 leftTop = {
-		    nextX - halfWidth,
-		    worldTransform_.translation_.y + halfHeight - kBlownAwayMargin,
-		    0.0f,
-		};
+	//		hitX = true;
+	//		bouncedThisFrame = true;
+	//	}
+	//} else if (blownAwayVelocity_.x < 0.0f) {
+	//	// 左へ移動している場合、左上と左下を確認
+	//	Vector3 leftTop = {
+	//	    nextX - halfWidth,
+	//	    worldTransform_.translation_.y + halfHeight - kBlownAwayMargin,
+	//	    0.0f,
+	//	};
 
-		Vector3 leftBottom = {
-		    nextX - halfWidth,
-		    worldTransform_.translation_.y - halfHeight + kBlownAwayMargin,
-		    0.0f,
-		};
+	//	Vector3 leftBottom = {
+	//	    nextX - halfWidth,
+	//	    worldTransform_.translation_.y - halfHeight + kBlownAwayMargin,
+	//	    0.0f,
+	//	};
 
-		Vector3 checkPositions[] = {
-		    leftTop,
-		    leftBottom,
-		};
+	//	Vector3 checkPositions[] = {
+	//	    leftTop,
+	//	    leftBottom,
+	//	};
 
-		bool hitLeft = false;
-		float resolvedX = nextX;
+	//	bool hitLeft = false;
+	//	float resolvedX = nextX;
 
-		for (const Vector3& position : checkPositions) {
+	//	for (const Vector3& position : checkPositions) {
 
-			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
 
-			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-				continue;
-			}
+	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+	//			continue;
+	//		}
 
-			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
 
-			// 敵の左端が壁の右端へ合う位置
-			float candidateX = rect.right + halfWidth + kBlownAwayMargin;
+	//		// 敵の左端が壁の右端へ合う位置
+	//		float candidateX = rect.right + halfWidth + kBlownAwayMargin;
 
-			resolvedX = std::max(resolvedX, candidateX);
+	//		resolvedX = std::max(resolvedX, candidateX);
 
-			hitLeft = true;
-		}
+	//		hitLeft = true;
+	//	}
 
-		if (hitLeft) {
-			nextX = resolvedX;
+	//	if (hitLeft) {
+	//		nextX = resolvedX;
 
-			blownAwayVelocity_.x = -blownAwayVelocity_.x;
+	//		blownAwayVelocity_.x = -blownAwayVelocity_.x;
 
-			hitX = true;
-			bouncedThisFrame = true;
-		}
-	}
+	//		hitX = true;
+	//		bouncedThisFrame = true;
+	//	}
+	//}
 
 	/*========== 画面左右端との反射 ==========*/
 	if (camera_) {
@@ -2016,105 +2018,105 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	/*========== Y方向の移動・床天井判定 ==========*/
 	float nextY = worldTransform_.translation_.y + blownAwayVelocity_.y;
 
-	bool hitFloor = false;
+	//bool hitFloor = false;
 
-	if (blownAwayVelocity_.y > 0.0f) {
-		// 上昇中：左上と右上を確認
-		Vector3 leftTop = {
-		    worldTransform_.translation_.x - halfWidth + kBlownAwayMargin,
-		    nextY + halfHeight,
-		    0.0f,
-		};
+	//if (blownAwayVelocity_.y > 0.0f) {
+	//	// 上昇中：左上と右上を確認
+	//	Vector3 leftTop = {
+	//	    worldTransform_.translation_.x - halfWidth + kBlownAwayMargin,
+	//	    nextY + halfHeight,
+	//	    0.0f,
+	//	};
 
-		Vector3 rightTop = {
-		    worldTransform_.translation_.x + halfWidth - kBlownAwayMargin,
-		    nextY + halfHeight,
-		    0.0f,
-		};
+	//	Vector3 rightTop = {
+	//	    worldTransform_.translation_.x + halfWidth - kBlownAwayMargin,
+	//	    nextY + halfHeight,
+	//	    0.0f,
+	//	};
 
-		Vector3 checkPositions[] = {
-		    leftTop,
-		    rightTop,
-		};
+	//	Vector3 checkPositions[] = {
+	//	    leftTop,
+	//	    rightTop,
+	//	};
 
-		bool hitCeiling = false;
-		float resolvedY = nextY;
+	//	bool hitCeiling = false;
+	//	float resolvedY = nextY;
 
-		for (const Vector3& position : checkPositions) {
+	//	for (const Vector3& position : checkPositions) {
 
-			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
 
-			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-				continue;
-			}
+	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+	//			continue;
+	//		}
 
-			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
 
-			// 敵の上端を天井の下端へ合わせる
-			float candidateY = rect.bottom - halfHeight - kBlownAwayMargin;
+	//		// 敵の上端を天井の下端へ合わせる
+	//		float candidateY = rect.bottom - halfHeight - kBlownAwayMargin;
 
-			resolvedY = std::min(resolvedY, candidateY);
+	//		resolvedY = std::min(resolvedY, candidateY);
 
-			hitCeiling = true;
-		}
+	//		hitCeiling = true;
+	//	}
 
-		if (hitCeiling) {
-			nextY = resolvedY;
+	//	if (hitCeiling) {
+	//		nextY = resolvedY;
 
-			blownAwayVelocity_.y = -blownAwayVelocity_.y;
+	//		blownAwayVelocity_.y = -blownAwayVelocity_.y;
 
-			hitY = true;
-			bouncedThisFrame = true;
-		}
+	//		hitY = true;
+	//		bouncedThisFrame = true;
+	//	}
 
-	} else if (blownAwayVelocity_.y < 0.0f) {
-		// 落下中：左下と右下を確認
-		Vector3 leftBottom = {
-		    worldTransform_.translation_.x - halfWidth + kBlownAwayMargin,
-		    nextY - halfHeight,
-		    0.0f,
-		};
+	//} else if (blownAwayVelocity_.y < 0.0f) {
+	//	// 落下中：左下と右下を確認
+	//	Vector3 leftBottom = {
+	//	    worldTransform_.translation_.x - halfWidth + kBlownAwayMargin,
+	//	    nextY - halfHeight,
+	//	    0.0f,
+	//	};
 
-		Vector3 rightBottom = {
-		    worldTransform_.translation_.x + halfWidth - kBlownAwayMargin,
-		    nextY - halfHeight,
-		    0.0f,
-		};
+	//	Vector3 rightBottom = {
+	//	    worldTransform_.translation_.x + halfWidth - kBlownAwayMargin,
+	//	    nextY - halfHeight,
+	//	    0.0f,
+	//	};
 
-		Vector3 checkPositions[] = {
-		    leftBottom,
-		    rightBottom,
-		};
+	//	Vector3 checkPositions[] = {
+	//	    leftBottom,
+	//	    rightBottom,
+	//	};
 
-		float resolvedY = nextY;
+	//	float resolvedY = nextY;
 
-		for (const Vector3& position : checkPositions) {
+	//	for (const Vector3& position : checkPositions) {
 
-			MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
+	//		MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(position);
 
-			if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
-				continue;
-			}
+	//		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex) != MapChipType::kBlock) {
+	//			continue;
+	//		}
 
-			MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
+	//		MapChipField::Rect rect = mapChipField_->GetRectByIndex(index.xIndex, index.yIndex);
 
-			// 敵の下端を床の上端へ合わせる
-			float candidateY = rect.top + halfHeight + kBlownAwayMargin;
+	//		// 敵の下端を床の上端へ合わせる
+	//		float candidateY = rect.top + halfHeight + kBlownAwayMargin;
 
-			resolvedY = std::max(resolvedY, candidateY);
+	//		resolvedY = std::max(resolvedY, candidateY);
 
-			hitFloor = true;
-		}
+	//		hitFloor = true;
+	//	}
 
-		if (hitFloor) {
-			nextY = resolvedY;
+	//	if (hitFloor) {
+	//		nextY = resolvedY;
 
-			blownAwayVelocity_.y = -blownAwayVelocity_.y;
+	//		blownAwayVelocity_.y = -blownAwayVelocity_.y;
 
-			hitY = true;
-			bouncedThisFrame = true;
-		}
-	}
+	//		hitY = true;
+	//		bouncedThisFrame = true;
+	//	}
+	//}
 
 	/*========== 画面上下端との反射 ==========*/
 	if (camera_) {
@@ -2236,17 +2238,8 @@ void Enemy::BehaviorBlownAwayUpdate() {
 	}
 
 	/*========== 回転 ==========*/
-
 	worldTransform_.rotation_.z += kBlownAwayRotateSpeed * blownAwayDirection_;
 
-	/*========== デバッグ中は死亡させない ==========*/
-
-	// 一時的に無効化
-	//
-	// if (blownAwayTimer_ >= kBlownAwayTime) {
-	//     behaviorRequest_ =
-	//         BehaviorEnemy::kDeath;
-	// }
 }
 
 // 小ノックバック更新
@@ -2325,13 +2318,17 @@ AABB Enemy::GetBlownAwayAttackAABB() {
 	attackAABB.min = {
 	    worldPos.x - halfWidth,
 	    worldPos.y - halfHeight,
-	    worldPos.z - halfWidth,
+	    //worldPos.z - halfWidth,
+	    //  見た目のZ位置とは分離
+	    -kWidth * 0.5f,
 	};
 
 	attackAABB.max = {
 	    worldPos.x + halfWidth,
 	    worldPos.y + halfHeight,
-	    worldPos.z + halfWidth,
+	    //worldPos.z + halfWidth,
+	    //  見た目のZ位置とは分離
+	    kWidth * 0.5f,
 	};
 
 	return attackAABB;
